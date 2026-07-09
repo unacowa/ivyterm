@@ -53,6 +53,13 @@ impl IvyTmuxWindow {
         }
     }
 
+    /// Send literal text (e.g. committed by an input method) to Tmux
+    pub fn tmux_send_text(&self, pane_id: u32, text: &str) {
+        if let Some(tmux) = get_tmux_ref(self) {
+            close_on_error!(tmux.send_quoted_text(pane_id, text), self);
+        }
+    }
+
     pub fn send_clipboard(&self, pane_id: u32, text: &str) {
         if let Some(tmux) = get_tmux_ref(self) {
             close_on_error!(tmux.send_quoted_text(pane_id, text), self);

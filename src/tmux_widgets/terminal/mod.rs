@@ -3,7 +3,7 @@ mod imp;
 use glib::{subclass::types::ObjectSubclassIsExt, Object, Propagation};
 use gtk4::{
     gdk::{ModifierType, BUTTON_MIDDLE, BUTTON_PRIMARY},
-    gio, EventControllerKey, GestureClick, ScrolledWindow,
+    gio, EventControllerKey, GestureClick, IMMulticontext, ScrolledWindow,
 };
 use libadwaita::{glib, prelude::*};
 use vte4::{Regex, Terminal as Vte, TerminalExt, TerminalExtManual};
@@ -68,18 +68,40 @@ impl TmuxTerminal {
             &color_scheme.get(),
         );
 
+        // The Tmux VTE widget has no PTY, keyboard input is handled by us. We
+        // run key events through our own input method context, so IME
+        // (e.g. fcitx) composed text is sent to Tmux exactly once, instead of
+        // leaking the raw keypresses. VTE's own input handling (and its
+        // internal IM context) is disabled to avoid processing input twice.
+        vte.set_input_enabled(false);
+        let im_context = IMMulticontext::new();
+        im_context.set_client_widget(Some(&vte));
+        im_context.connect_commit(glib::clone!(
+            #[weak]
+            window,
+            move |_, text| {
+                window.tmux_send_text(pane_id, text);
+            }
+        ));
+
         vte.connect_has_focus_notify(glib::clone!(
             #[weak]
             top_level,
+            #[weak]
+            im_context,
             move |vte| {
                 if vte.has_focus() {
+                    im_context.focus_in();
                     // Notify TopLevel that the focused terminal changed
                     top_level.gtk_terminal_focus_changed(pane_id);
+                } else {
+                    im_context.focus_out();
                 }
             }
         ));
 
         let eventctl = EventControllerKey::new();
+        eventctl.set_im_context(Some(&im_context));
         eventctl.connect_key_pressed(glib::clone!(
             #[weak]
             vte,
