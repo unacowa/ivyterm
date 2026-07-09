@@ -14,7 +14,6 @@ pub enum IvyError {
 pub enum TmuxError {
     EventChannelClosed,
     ExitEventReceived,
-    SshClosed,
     ErrorParsingUTF8,
 }
 

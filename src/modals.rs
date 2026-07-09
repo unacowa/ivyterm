@@ -1,5 +1,5 @@
 use glib::RustClosure;
-use gtk4::{Align, Box, Button, Entry, Label, Orientation, PasswordEntry};
+use gtk4::{Align, Box, Button, Entry, Label, Orientation};
 use libadwaita::{prelude::*, ApplicationWindow, HeaderBar, Window};
 
 use crate::application::IvyApplication;
@@ -78,15 +78,16 @@ pub fn spawn_new_tmux_modal(parent: &ApplicationWindow) {
     // SSH input
     let ssh_label = Label::new(Some("SSH host (optional):"));
     let ssh_input = Entry::new();
-    ssh_input.set_placeholder_text(Some("Either user@host:port or config_entry"));
+    ssh_input.set_placeholder_text(Some("user@host or ssh config alias"));
     content.append(&ssh_label);
     content.append(&ssh_input);
 
-    // SSH password
-    let password_label = Label::new(Some("SSH password (optional, public key preferred):"));
-    let password_input = PasswordEntry::new();
-    content.append(&password_label);
-    content.append(&password_input);
+    // Custom Tmux command input
+    let command_label = Label::new(Some("Tmux command (optional):"));
+    let command_input = Entry::new();
+    command_input.set_placeholder_text(Some("e.g. distrobox enter arch -- tmux"));
+    content.append(&command_label);
+    content.append(&command_input);
 
     // Button
     let button = Button::builder().label("Attach").build();
@@ -103,7 +104,7 @@ pub fn spawn_new_tmux_modal(parent: &ApplicationWindow) {
         move |_| {
             let tmux_session = session_input.text();
             let ssh_target = ssh_input.text();
-            let ssh_password = password_input.text();
+            let tmux_command = command_input.text();
 
             let app = dialog.application();
             dialog.close();
@@ -113,9 +114,14 @@ pub fn spawn_new_tmux_modal(parent: &ApplicationWindow) {
                 let ssh_target = if ssh_target.is_empty() {
                     None
                 } else {
-                    Some((ssh_target.as_str(), ssh_password.as_str()))
+                    Some(ssh_target.as_str())
                 };
-                app.new_tmux_window(tmux_session.as_str(), ssh_target);
+                let tmux_command = if tmux_command.is_empty() {
+                    None
+                } else {
+                    Some(tmux_command.as_str())
+                };
+                app.new_tmux_window(tmux_session.as_str(), ssh_target, tmux_command);
             }
         }
     ));

@@ -15,7 +15,6 @@ use crate::{
     helpers::borrow_clone,
     keyboard::KeyboardAction,
     modals::spawn_new_tmux_modal,
-    ssh::{new_session, SSHData},
     tmux_api::TmuxAPI,
 };
 
@@ -43,7 +42,12 @@ glib::wrapper! {
 }
 
 impl IvyTmuxWindow {
-    pub fn new(app: &IvyApplication, tmux_session: &str, ssh_host: Option<(&str, &str)>) -> Self {
+    pub fn new(
+        app: &IvyApplication,
+        tmux_session: &str,
+        ssh_host: Option<&str>,
+        tmux_command: Option<&str>,
+    ) -> Self {
         let window: Self = Object::builder().build();
         window.set_application(Some(app));
         window.set_title(Some(APPLICATION_TITLE));
@@ -161,19 +165,19 @@ impl IvyTmuxWindow {
         window_box.append(&tab_view);
         window.set_content(Some(&window_box));
 
-        if let Some((ssh_target, ssh_password)) = ssh_host {
-            new_ssh_session(&window, tmux_session, ssh_target, ssh_password);
-        } else {
-            window.initialize_tmux(tmux_session, None);
-        }
+        window.initialize_tmux(tmux_session, ssh_host, tmux_command);
 
         window
     }
 
-    /// Called after both Tmux and SSH session are ready (if it exists)
-    fn initialize_tmux(&self, tmux_session: &str, ssh_data: Option<SSHData>) {
+    fn initialize_tmux(
+        &self,
+        tmux_session: &str,
+        ssh_target: Option<&str>,
+        tmux_command: Option<&str>,
+    ) {
         // Initialize Tmux API
-        let tmux = TmuxAPI::new(tmux_session, ssh_data, self).unwrap();
+        let tmux = TmuxAPI::new(tmux_session, ssh_target, tmux_command, self).unwrap();
         self.imp().tmux.replace(Some(Rc::new(tmux)));
 
         // Get initial Tmux layout
@@ -304,40 +308,4 @@ impl IvyTmuxWindow {
             }
         ));
     }
-}
-
-fn new_ssh_session(
-    window: &IvyTmuxWindow,
-    tmux_session: &str,
-    ssh_target: &str,
-    ssh_password: &str,
-) {
-    let tmux_session = tmux_session.to_string();
-    let ssh_target = ssh_target.to_string();
-    let ssh_password = ssh_password.to_string();
-
-    glib::spawn_future_local(glib::clone!(
-        #[weak]
-        window,
-        async move {
-            let ret =
-                match gio::spawn_blocking(move || new_session(&ssh_target, &ssh_password)).await {
-                    Ok(ret) => ret,
-                    Err(_) => {
-                        window.close();
-                        return;
-                    }
-                };
-
-            let tuple = match ret {
-                Ok(ret) => ret,
-                Err(_) => {
-                    window.close();
-                    return;
-                }
-            };
-
-            window.initialize_tmux(&tmux_session, Some(tuple));
-        }
-    ));
 }

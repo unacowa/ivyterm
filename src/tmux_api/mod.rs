@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::io::{self, ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 
 use async_channel::{Receiver, Sender};
@@ -7,14 +7,11 @@ use enumflags2::{bitflags, BitFlags};
 use glib::JoinHandle;
 use gtk4::gio::spawn_blocking;
 use gtk4::Orientation;
-use log::debug;
 use receive::tmux_parse_data;
-use ssh2::{DisconnectCode, Session};
 use vmap::io::{Ring, SeqWrite};
 
-use crate::helpers::{IvyError, TmuxError};
+use crate::helpers::IvyError;
 use crate::keyboard::Direction;
-use crate::ssh::{SSHData, SSH_TOKEN};
 use crate::tmux_widgets::IvyTmuxWindow;
 
 mod parse_layout;
@@ -22,7 +19,6 @@ mod receive;
 mod send;
 
 pub struct TmuxAPI {
-    ssh_session: Option<Session>,
     stdin_stream: RefCell<Box<dyn Write>>,
     command_queue: Sender<TmuxCommand>,
     window_size: Cell<(i32, i32)>,
@@ -34,14 +30,6 @@ impl Drop for TmuxAPI {
     fn drop(&mut self) {
         // Stop main-thread future which receives Tmux events
         self.receive_future.abort();
-        // Disconnect SSH session if any
-        if let Some(ssh_session) = &self.ssh_session {
-            if let Err(err) =
-                ssh_session.disconnect(Some(DisconnectCode::ByApplication), "Tmux closed", None)
-            {
-                eprintln!("Error disconnecting from SSH session: {}", err);
-            }
-        }
     }
 }
 
@@ -149,7 +137,8 @@ impl TmuxParserState {
 impl TmuxAPI {
     pub fn new(
         session_name: &str,
-        ssh_session: Option<SSHData>,
+        ssh_target: Option<&str>,
+        tmux_command: Option<&str>,
         window: &IvyTmuxWindow,
     ) -> Result<TmuxAPI, IvyError> {
         // Create async channels
@@ -162,14 +151,14 @@ impl TmuxAPI {
         // Parse attach output
         cmd_queue_sender.send_blocking(TmuxCommand::Init).unwrap();
 
-        // Spawn TMUX subprocess
-        let spawn = if let Some(tuple) = ssh_session {
-            new_with_ssh(session_name, tuple, tmux_event_sender, cmd_queue_receiver)
-        } else {
-            new_without_ssh(session_name, tmux_event_sender, cmd_queue_receiver)
-                .map(|ok| (ok, None))
-        };
-        let (writer, ssh_session) = spawn?;
+        // Spawn TMUX subprocess (through the system ssh client if a host is given)
+        let writer = spawn_tmux(
+            session_name,
+            ssh_target,
+            tmux_command,
+            tmux_event_sender,
+            cmd_queue_receiver,
+        )?;
 
         // Receive events from the channel on main thread
         let receive_future = glib::spawn_future_local(glib::clone!(
@@ -184,7 +173,6 @@ impl TmuxAPI {
 
         // Handle Tmux STDIN
         let tmux = TmuxAPI {
-            ssh_session,
             stdin_stream: RefCell::new(writer),
             command_queue: cmd_queue_sender,
             window_size: Cell::new((0, 0)),
@@ -216,116 +204,40 @@ fn read_into_ringbuffer<T: Read>(
     })
 }
 
-fn new_with_ssh(
-    tmux_name: &str,
-    ssh_data: SSHData,
-    tmux_event_sender: Sender<TmuxEvent>,
-    cmd_queue_receiver: Receiver<TmuxCommand>,
-) -> Result<(Box<dyn Write>, Option<Session>), IvyError> {
-    let SSHData(ssh_target, session, mut poll, mut events) = ssh_data;
-
-    let command = format!("tmux -2 -C new-session -A -s {}", tmux_name);
-    let mut channel = session.channel_session().unwrap();
-    channel.exec(&command).map_err(|err| {
-        eprintln!("channel.exec() failed with: {}", err);
-        IvyError::TmuxSpawnFailed
-    })?;
-    session.set_blocking(false);
-
-    let ssh_stdin = channel.stream(0);
-    let mut ssh_stdout = channel.stream(0);
-    let mut ssh_stderr = channel.stderr();
-
-    spawn_blocking(move || {
-        let mut state =
-            TmuxParserState::new(tmux_event_sender, cmd_queue_receiver, Some(ssh_target));
-        // Memory mapped ringbuffer appears contiguous to our program
-        let mut ring_buffer = Ring::new(16_000).unwrap();
-        let mut stderr_buffer = vec![0; 4096];
-        let stderr = io::stderr();
-
-        // Closure which will handle events
-        let mut handle_event = move || {
-            // Read from SSH stdout into the ringbuffer
-            loop {
-                match read_into_ringbuffer(&mut ssh_stdout, &mut ring_buffer) {
-                    Ok(bytes_read) => {
-                        if bytes_read < 1 {
-                            continue;
-                        }
-
-                        let read_again = ring_buffer.is_full();
-
-                        // Consume the read bytes
-                        tmux_parse_data(&mut state, &mut ring_buffer)?;
-
-                        if read_again == false {
-                            break;
-                        }
-                    }
-                    Err(e) => match e.kind() {
-                        ErrorKind::WouldBlock => break,
-                        _ => {
-                            debug!("Error reading Tmux stdout: {}, {:?}", e, e.kind());
-                            return Err(TmuxError::SshClosed);
-                        }
-                    },
-                }
-            }
-
-            // SSH stderr
-            match ssh_stderr.read(&mut stderr_buffer) {
-                Ok(bytes_read) => {
-                    let data = stderr_buffer[..bytes_read].to_vec();
-                    let s = String::from_utf8(data).unwrap();
-                    let mut stderr = stderr.lock();
-                    stderr.write(s.as_bytes()).unwrap();
-                }
-                Err(e) => {
-                    if e.kind() != std::io::ErrorKind::WouldBlock {
-                        debug!("Stderr: {}", e);
-                        return Err(TmuxError::SshClosed);
-                    }
-                }
-            }
-
-            Ok(())
-        };
-
-        loop {
-            if let Err(_) = poll.poll(&mut events, None) {
-                return;
-            }
-
-            for event in events.iter() {
-                match event.token() {
-                    SSH_TOKEN => {
-                        if event.is_readable() {
-                            if let Err(_) = handle_event() {
-                                return;
-                            }
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-
-                if event.is_error() || event.is_read_closed() || event.is_write_closed() {
-                    return;
-                }
-            }
-        }
-    });
-
-    return Ok((Box::new(ssh_stdin), Some(session)));
-}
-
-fn new_without_ssh(
+fn spawn_tmux(
     session_name: &str,
+    ssh_target: Option<&str>,
+    tmux_command: Option<&str>,
     tmux_event_sender: Sender<TmuxEvent>,
     cmd_queue_receiver: Receiver<TmuxCommand>,
 ) -> Result<Box<dyn Write>, IvyError> {
-    println!("Attaching to Tmux session {}", session_name);
-    let mut process = Command::new("tmux")
+    // The command which launches Tmux can be overridden, e.g.
+    // "distrobox enter arch -- tmux"
+    let tmux_command = tmux_command.unwrap_or("tmux");
+    let mut tmux_args = tmux_command.split_whitespace();
+    let tmux_program = tmux_args.next().unwrap_or("tmux");
+
+    // When an SSH host is given, run Tmux remotely through the system ssh
+    // client, so the user's full SSH configuration (aliases, IdentityFile,
+    // ProxyJump, ...) applies
+    let mut command = if let Some(host) = ssh_target {
+        println!(
+            "Attaching to Tmux session {} on {} ({})",
+            session_name, host, tmux_command
+        );
+        let mut command = Command::new("ssh");
+        command.arg(host).arg(tmux_program);
+        command
+    } else {
+        println!(
+            "Attaching to Tmux session {} ({})",
+            session_name, tmux_command
+        );
+        Command::new(tmux_program)
+    };
+    command.args(tmux_args);
+
+    let mut process = command
         .arg("-2")
         .arg("-C")
         .arg("new-session")
@@ -334,15 +246,19 @@ fn new_without_ssh(
         .arg(session_name)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::inherit())
         .spawn()
-        .unwrap();
+        .map_err(|err| {
+            eprintln!("Failed to spawn Tmux: {}", err);
+            IvyError::TmuxSpawnFailed
+        })?;
 
     // Read from Tmux STDOUT and send events to the channel on a separate thread
     let mut stdout_stream = process.stdout.take().expect("Failed to open stdout");
+    let ssh_target = ssh_target.map(|host| host.to_string());
     spawn_blocking(move || {
         let mut ring_buffer = Ring::new(16_000).unwrap();
-        let mut state = TmuxParserState::new(tmux_event_sender, cmd_queue_receiver, None);
+        let mut state = TmuxParserState::new(tmux_event_sender, cmd_queue_receiver, ssh_target);
 
         loop {
             match read_into_ringbuffer(&mut stdout_stream, &mut ring_buffer) {

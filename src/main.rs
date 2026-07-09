@@ -9,7 +9,6 @@ mod keyboard;
 mod modals;
 mod normal_widgets;
 mod settings_window;
-mod ssh;
 mod tmux_api;
 mod tmux_widgets;
 
@@ -20,9 +19,11 @@ fn main() -> glib::ExitCode {
         println!("Usage: ivyterm [OPTIONS]");
         println!();
         println!("Options:");
-        println!("  -t, --tmux <SESSION>  Attach to a tmux session");
-        println!("  -s, --ssh <HOST>      SSH host (e.g., user@host)");
-        println!("  -h, --help            Show this help message");
+        println!("  -t, --tmux <SESSION>     Attach to a tmux session");
+        println!("  -s, --ssh <HOST>         SSH host (e.g., user@host)");
+        println!("  -c, --command <COMMAND>  Command used to launch tmux");
+        println!("                           (e.g. \"distrobox enter arch -- tmux\")");
+        println!("  -h, --help               Show this help message");
         std::process::exit(0);
     }
 
@@ -46,6 +47,7 @@ fn main() -> glib::ExitCode {
 
         let mut tmux_session = None;
         let mut ssh_host = None;
+        let mut tmux_command = None;
         let mut i = 1; // skip program name
 
         while i < args.len() {
@@ -66,6 +68,14 @@ fn main() -> glib::ExitCode {
                     }
                     ssh_host = Some(args[i].clone());
                 }
+                "--command" | "-c" => {
+                    i += 1;
+                    if i >= args.len() || args[i].starts_with('-') {
+                        eprintln!("Error: {} requires a value", args[i - 1]);
+                        return 1;
+                    }
+                    tmux_command = Some(args[i].clone());
+                }
                 arg => {
                     eprintln!("Error: unknown argument '{}'", arg);
                     return 1;
@@ -78,10 +88,13 @@ fn main() -> glib::ExitCode {
             eprintln!("Error: --ssh requires --tmux");
             return 1;
         }
+        if tmux_command.is_some() && tmux_session.is_none() {
+            eprintln!("Error: --command requires --tmux");
+            return 1;
+        }
 
         if let Some(session) = tmux_session {
-            let ssh_target = ssh_host.as_deref().map(|h| (h, ""));
-            app.new_tmux_window(&session, ssh_target);
+            app.new_tmux_window(&session, ssh_host.as_deref(), tmux_command.as_deref());
         } else {
             app.new_normal_window();
         }

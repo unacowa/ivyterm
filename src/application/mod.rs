@@ -60,8 +60,13 @@ impl IvyApplication {
         window.present();
     }
 
-    pub fn new_tmux_window(&self, tmux_session: &str, ssh_target: Option<(&str, &str)>) {
-        let window = IvyTmuxWindow::new(self, tmux_session, ssh_target);
+    pub fn new_tmux_window(
+        &self,
+        tmux_session: &str,
+        ssh_target: Option<&str>,
+        tmux_command: Option<&str>,
+    ) {
+        let window = IvyTmuxWindow::new(self, tmux_session, ssh_target, tmux_command);
         window.present();
     }
 
