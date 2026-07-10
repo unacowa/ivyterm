@@ -115,11 +115,10 @@ struct TmuxParserState {
     event_channel: Sender<TmuxEvent>,
     command_queue: Receiver<TmuxCommand>,
     current_command: Option<TmuxCommand>,
-    is_error: bool,
-    result_line: usize,
-    empty_line_count: usize,
-    /// Accumulates multi-line output of `show-buffer` (FetchBuffer command)
-    fetch_buffer: Vec<u8>,
+    /// Output lines received since %begin. They are held back until the
+    /// closing %end/%error arrives, because only that line tells whether
+    /// they are the command's result or an error message
+    block_lines: Vec<Vec<u8>>,
     /// False until the first %begin is seen; shell output arriving before it
     /// (prompt echo over a pty transport, ...) is discarded
     preamble_done: bool,
@@ -134,10 +133,7 @@ impl TmuxParserState {
             command_queue: cmd_queue_receiver,
             event_channel: tmux_event_sender,
             current_command: None,
-            is_error: false,
-            result_line: 0,
-            empty_line_count: 0,
-            fetch_buffer: Vec::new(),
+            block_lines: Vec::new(),
             preamble_done: false,
         }
     }
