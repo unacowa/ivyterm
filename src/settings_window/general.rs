@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk4::{CheckButton, Entry, FontButton};
+use gtk4::{CheckButton, Entry, FontButton, Label};
 use libadwaita::{prelude::*, PreferencesGroup, PreferencesPage};
 
 use crate::config::GlobalConfig;
@@ -20,7 +20,35 @@ pub fn create_general_page(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesPag
     let bright_colors = create_bright_colors(config);
     page.add(&bright_colors);
 
+    // Build info (revision + timestamp) to identify the running binary
+    let build_info = create_build_info();
+    page.add(&build_info);
+
     page
+}
+
+fn create_build_info() -> PreferencesGroup {
+    let build_info = PreferencesGroup::builder().title("Build").build();
+
+    let version = Label::builder()
+        .selectable(true)
+        .label(env!("CARGO_PKG_VERSION"))
+        .build();
+    create_setting_row(&build_info, "Version", version);
+
+    let revision = Label::builder()
+        .selectable(true)
+        .label(env!("IVYTERM_GIT_REVISION"))
+        .build();
+    create_setting_row(&build_info, "Git revision", revision);
+
+    let build_time = Label::builder()
+        .selectable(true)
+        .label(env!("IVYTERM_BUILD_TIME"))
+        .build();
+    create_setting_row(&build_info, "Built at", build_time);
+
+    build_info
 }
 
 fn create_terminal_prefs(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesGroup {
