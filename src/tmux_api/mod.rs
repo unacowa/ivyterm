@@ -75,6 +75,7 @@ pub enum TmuxEvent {
     PaneFocusChanged(u32, u32),
     TabFocusChanged(u32),
     TabNew(LayoutSync),
+    WindowAdded(u32),
     TabClosed(u32),
     TabRenamed(u32, String),
     SessionChanged(u32, String),

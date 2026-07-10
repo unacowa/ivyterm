@@ -44,6 +44,13 @@ impl IvyTmuxWindow {
         self.imp().char_size.get()
     }
 
+    /// Kill a Tmux window (e.g. because the user closed its Tab)
+    pub fn tmux_kill_window(&self, tab_id: u32) {
+        if let Some(tmux) = get_tmux_ref(self) {
+            close_on_error!(tmux.kill_window(tab_id), self);
+        }
+    }
+
     /// Send user input (as produced by VTE's `commit` signal) to Tmux
     pub fn tmux_send_input(&self, pane_id: u32, text: &str) {
         if let Some(tmux) = get_tmux_ref(self) {
@@ -165,6 +172,16 @@ impl IvyTmuxWindow {
             TmuxEvent::TabNew(layout_sync) => {
                 debug!("\n---------- New tab ----------");
                 self.sync_tmux_layout(layout_sync);
+            }
+            TmuxEvent::WindowAdded(tab_id) => {
+                // Window created by another client; ask for its layout so the
+                // Tab is created right away instead of on the next
+                // %layout-change (e.g. window resize)
+                if self.get_top_level(tab_id).is_none() {
+                    if let Some(tmux) = get_tmux_ref(self) {
+                        close_on_error!(tmux.get_window_layout(tab_id), self);
+                    }
+                }
             }
             TmuxEvent::TabClosed(tab_id) => {
                 if let Some(top_level) = self.get_top_level(tab_id) {

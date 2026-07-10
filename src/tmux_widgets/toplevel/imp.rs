@@ -25,6 +25,9 @@ pub struct TopLevelPriv {
     pub terminals: RefCell<Vec<TmuxTerminal>>,
     pub zoomed: RefCell<Option<Zoomed>>,
     pub focused_terminal: Cell<u32>,
+    /// The Tmux window is already gone (closed by Tmux), no need to tell
+    /// Tmux to kill it when the Tab closes
+    pub closed_by_tmux: Cell<bool>,
 }
 
 // The central trait for subclassing a GObject

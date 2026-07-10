@@ -39,6 +39,24 @@ impl TmuxAPI {
         self.send_event(TmuxCommand::InitialLayout, cmd)
     }
 
+    /// Kill a Tmux window (the user closed its Tab)
+    pub fn kill_window(&self, tab_id: u32) -> Result<(), TmuxError> {
+        debug!("Killing window {}", tab_id);
+        let cmd = format!("kill-window -t @{}", tab_id);
+        self.send_event(TmuxCommand::TabClose, &cmd)
+    }
+
+    /// Ask for the layout of a single window (e.g. one added by another
+    /// client), so a Tab can be created for it
+    pub fn get_window_layout(&self, tab_id: u32) -> Result<(), TmuxError> {
+        debug!("Getting layout of window {}", tab_id);
+        let cmd = format!(
+            "list-windows -f \"#{{==:#{{window_id}},@{}}}\" -F \"#{{window_id}} #{{window_layout}} #{{window_visible_layout}} #{{window_flags}} #{{window_name}}\"",
+            tab_id
+        );
+        self.send_event(TmuxCommand::TabNew, &cmd)
+    }
+
     pub fn get_initial_output(&self, pane_id: u32) -> Result<(), TmuxError> {
         debug!("Getting initial output of pane {}", pane_id);
         let event = TmuxCommand::InitialOutput(pane_id);

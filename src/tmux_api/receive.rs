@@ -211,9 +211,12 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
         );
         receive_event(&event_channel, TmuxEvent::PaneFocusChanged(tab_id, pane_id))?;
     } else if buffer_starts_with(&buffer, "%window-add") {
-        // TODO: Instead of asking for info when creating a new window, ask for info
-        // after receiving this notification
         // %window-add @32
+        // The window might have been created by another client; ask for its
+        // layout so a Tab is created for it
+        let (tab_id, _) = read_first_u32(&buffer[13..]);
+        debug!("Tmux event: Window {} added", tab_id);
+        receive_event(&event_channel, TmuxEvent::WindowAdded(tab_id))?;
     } else if buffer_starts_with(&buffer, "%session-window-changed") {
         // %session-window-changed $1 @1
         let (session_id, chars_read) = read_first_u32(&buffer[25..]);
@@ -227,6 +230,11 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
     } else if buffer_starts_with(&buffer, "%unlinked-window-close") {
         // %unlinked-window-close @6
         let (tab_id, _) = read_first_u32(&buffer[24..]);
+        debug!("Tmux event: Tab {} closed", tab_id);
+        receive_event(&event_channel, TmuxEvent::TabClosed(tab_id))?;
+    } else if buffer_starts_with(&buffer, "%window-close") {
+        // %window-close @6
+        let (tab_id, _) = read_first_u32(&buffer[15..]);
         debug!("Tmux event: Tab {} closed", tab_id);
         receive_event(&event_channel, TmuxEvent::TabClosed(tab_id))?;
     } else if buffer_starts_with(&buffer, "%layout-change") {

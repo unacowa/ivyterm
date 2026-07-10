@@ -99,6 +99,13 @@ impl IvyTmuxWindow {
                 // Remove the tab from the tab list
                 imp.tabs.borrow_mut().retain(|tab| !closing_tab.eq(tab));
 
+                // If the user closed the Tab (rather than Tmux closing the
+                // window), kill the Tmux window, so it does not linger and
+                // gets its Tab recreated on the next layout change
+                if !closing_tab.imp().closed_by_tmux.get() {
+                    window.tmux_kill_window(closing_tab.tab_id());
+                }
+
                 // This is a hacky fix of what appears to be a libadwaita issue.
                 // The issue is reproducible in 1.5.0 and resolved in 1.6.0. Not
                 // sure if 1.5.x versions have been fixed.
@@ -217,6 +224,8 @@ impl IvyTmuxWindow {
 
     pub fn close_tab(&self, closing_tab: &TmuxTopLevel) {
         let imp = self.imp();
+        // The Tmux window is already closed, no need to kill it
+        closing_tab.imp().closed_by_tmux.set(true);
         let tab_view = borrow_clone(&imp.tab_view);
         let page = tab_view.page(closing_tab);
         tab_view.close_page(&page);
