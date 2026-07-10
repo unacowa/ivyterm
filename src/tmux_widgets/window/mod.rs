@@ -300,21 +300,4 @@ impl IvyTmuxWindow {
         }
     }
 
-    pub fn clipboard_paste_event(&self, pane_id: u32) {
-        let display = gtk4::gdk::Display::default().unwrap();
-        let clipboard = display.clipboard();
-        let future = clipboard.read_text_future();
-
-        glib::spawn_future_local(glib::clone!(
-            #[weak(rename_to = window)]
-            self,
-            async move {
-                if let Ok(output) = future.await {
-                    if let Some(output) = output {
-                        window.send_clipboard(pane_id, output.as_str());
-                    }
-                }
-            }
-        ));
-    }
 }

@@ -98,27 +98,11 @@ impl TmuxAPI {
         self.send_event(TmuxCommand::Keypress, &cmd)
     }
 
-    pub fn send_quoted_text(&self, pane_id: u32, text: &str) -> Result<(), TmuxError> {
-        // Escape content
-        let mut escaped = String::with_capacity(text.len());
-        for c in text.chars() {
-            // Import write!{} trait here, otherwise it collides with
-            // use std::io::Write;
-            use std::fmt::Write;
-
-            match c {
-                // These characters mess with Tmux
-                '\n' | '"' | '\\' | '$' => {
-                    let ascii = c as u8;
-                    write!(escaped, "\\{:03o}", ascii).unwrap();
-                }
-                _ => escaped.push(c),
-            }
-        }
-
-        let cmd = format!("send-keys -l -t %{} -- \"{}\"", pane_id, escaped);
-        debug!("send_clipboard: {}", &cmd[..cmd.len() - 1]);
-        self.send_event(TmuxCommand::ClipboardPaste, &cmd)
+    /// Fetch the content of a Tmux paste buffer (to sync the system clipboard)
+    pub fn fetch_buffer(&self, name: &str) -> Result<(), TmuxError> {
+        debug!("Fetching paste buffer: {}", name);
+        let cmd = format!("show-buffer -b \"{}\"", name);
+        self.send_event(TmuxCommand::FetchBuffer, &cmd)
     }
 
     // TODO: Too many functions for sending text

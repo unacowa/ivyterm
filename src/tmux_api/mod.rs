@@ -60,7 +60,7 @@ pub enum TmuxCommand {
     PaneResize(u32),
     ChangeSize(i32, i32),
     InitialOutput(u32),
-    ClipboardPaste,
+    FetchBuffer,
     ClearScrollback(u32),
 }
 
@@ -79,6 +79,8 @@ pub enum TmuxEvent {
     TabClosed(u32),
     TabRenamed(u32, String),
     SessionChanged(u32, String),
+    PasteBufferChanged(String),
+    ClipboardText(String),
     Exit,
     ScrollbackCleared(u32),
 }
@@ -115,6 +117,8 @@ struct TmuxParserState {
     is_error: bool,
     result_line: usize,
     empty_line_count: usize,
+    /// Accumulates multi-line output of `show-buffer` (FetchBuffer command)
+    fetch_buffer: Vec<u8>,
 }
 
 impl TmuxParserState {
@@ -131,6 +135,7 @@ impl TmuxParserState {
             ssh_target,
             result_line: 0,
             empty_line_count: 0,
+            fetch_buffer: Vec::new(),
         }
     }
 }

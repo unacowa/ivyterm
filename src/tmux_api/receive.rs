@@ -122,6 +122,13 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
     // TODO: Handle output larger than 65534 bytes
     // All output from Tmux is ASCII, except %output which we handle separately
     if buffer.len() == 0 {
+        // Buffer content may contain empty lines
+        if let Some(TmuxCommand::FetchBuffer) = &state.current_command {
+            if state.result_line > 0 {
+                state.fetch_buffer.push(b'\n');
+            }
+            state.result_line += 1;
+        }
         return Ok(0);
     }
 
@@ -135,6 +142,12 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
             let stderr = io::stderr();
             let mut stderr = stderr.lock();
             stderr.write(buffer).unwrap();
+        } else if let Some(TmuxCommand::FetchBuffer) = &state.current_command {
+            // Accumulate (possibly multi-line) buffer content
+            if state.result_line > 0 {
+                state.fetch_buffer.push(b'\n');
+            }
+            state.fetch_buffer.extend_from_slice(buffer);
         } else if let Some(command) = &state.current_command {
             tmux_command_result(
                 command,
@@ -182,6 +195,11 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
                 }
                 TmuxCommand::ClearScrollback(term_id) => {
                     receive_event(&event_channel, TmuxEvent::ScrollbackCleared(*term_id))?;
+                }
+                TmuxCommand::FetchBuffer => {
+                    let data = std::mem::take(&mut state.fetch_buffer);
+                    let text = String::from_utf8_lossy(&data).into_owned();
+                    receive_event(&event_channel, TmuxEvent::ClipboardText(text))?;
                 }
                 _ => {}
             }
@@ -241,6 +259,13 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
         // Layout has changed
         let layout_sync = parse_tmux_layout(&buffer[15..]);
         receive_event(&event_channel, TmuxEvent::LayoutChanged(layout_sync))?;
+    } else if buffer_starts_with(&buffer, "%paste-buffer-changed") {
+        // %paste-buffer-changed name
+        // A Tmux paste buffer changed (copy-mode yank, OSC 52 with
+        // set-clipboard on, ...); fetch it to sync the system clipboard
+        let name = parse_utf8(&buffer[22..])?.to_string();
+        debug!("Tmux event: Paste buffer changed: {}", name);
+        receive_event(&event_channel, TmuxEvent::PasteBufferChanged(name))?;
     } else if buffer_starts_with(&buffer, "%session-changed") {
         // Session has changed
         let (id, bytes_read) = read_first_u32(&buffer[18..]);

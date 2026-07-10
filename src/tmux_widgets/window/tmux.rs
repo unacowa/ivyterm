@@ -58,11 +58,6 @@ impl IvyTmuxWindow {
         }
     }
 
-    pub fn send_clipboard(&self, pane_id: u32, text: &str) {
-        if let Some(tmux) = get_tmux_ref(self) {
-            close_on_error!(tmux.send_quoted_text(pane_id, text), self);
-        }
-    }
 
     fn tmux_sync_size(&self) {
         let imp = self.imp();
@@ -267,6 +262,15 @@ impl IvyTmuxWindow {
                 }
 
                 println!("Session {} with name {} initialized", new.0, new.1);
+            }
+            TmuxEvent::PasteBufferChanged(name) => {
+                if let Some(tmux) = get_tmux_ref(self) {
+                    close_on_error!(tmux.fetch_buffer(&name), self);
+                }
+            }
+            TmuxEvent::ClipboardText(text) => {
+                // Sync Tmux paste buffer to the system clipboard
+                self.clipboard().set_text(&text);
             }
             TmuxEvent::ScrollbackCleared(term_id) => {
                 let terminals = &imp.terminals;

@@ -2,7 +2,7 @@ mod imp;
 
 use glib::{subclass::types::ObjectSubclassIsExt, Object, Propagation};
 use gtk4::{
-    gdk::{ModifierType, BUTTON_MIDDLE, BUTTON_PRIMARY},
+    gdk::{ModifierType, BUTTON_PRIMARY},
     gio, EventControllerKey, GestureClick, PropagationPhase, ScrolledWindow,
 };
 use libadwaita::{glib, prelude::*};
@@ -129,8 +129,6 @@ impl TmuxTerminal {
         click_ctrl.connect_pressed(glib::clone!(
             #[weak]
             vte,
-            #[weak]
-            window,
             move |click_ctrl, n_clicked, x, y| {
                 let button = click_ctrl.current_button();
                 match button {
@@ -158,10 +156,8 @@ impl TmuxTerminal {
                             Err(err) => eprintln!("Cannot open URL ({}): {}", url, err),
                         }
                     }
-                    BUTTON_MIDDLE => {
-                        /* Allow Middle click to paste */
-                        window.clipboard_paste_event(pane_id);
-                    }
+                    // Middle click paste (PRIMARY selection) is handled by
+                    // VTE itself and forwarded via the `commit` signal
                     _ => {}
                 }
             }
@@ -258,7 +254,9 @@ fn handle_keyboard_event(
             vte.emit_copy_clipboard();
         }
         KeyboardAction::PasteClipboard => {
-            window.clipboard_paste_event(pane_id);
+            // VTE wraps the paste in bracketed paste markers when the pane
+            // application enabled them; forwarded via the `commit` signal
+            vte.paste_clipboard();
         }
         KeyboardAction::TabRename => {
             top_level.open_rename_modal();
