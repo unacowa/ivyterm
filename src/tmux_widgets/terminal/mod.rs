@@ -2,8 +2,8 @@ mod imp;
 
 use glib::{subclass::types::ObjectSubclassIsExt, Object, Propagation};
 use gtk4::{
-    gdk::{ModifierType, Rectangle, BUTTON_MIDDLE, BUTTON_PRIMARY},
-    gio, EventControllerKey, GestureClick, IMMulticontext, ScrolledWindow,
+    gdk::{ModifierType, BUTTON_MIDDLE, BUTTON_PRIMARY},
+    gio, EventControllerKey, GestureClick, PropagationPhase, ScrolledWindow,
 };
 use libadwaita::{glib, prelude::*};
 use vte4::{Regex, Terminal as Vte, TerminalExt, TerminalExtManual};
@@ -68,51 +68,33 @@ impl TmuxTerminal {
             &color_scheme.get(),
         );
 
-        // The Tmux VTE widget has no PTY, keyboard input is handled by us. We
-        // run key events through our own input method context, so IME
-        // (e.g. fcitx) composed text is sent to Tmux exactly once, instead of
-        // leaking the raw keypresses. VTE's own input handling (and its
-        // internal IM context) is disabled to avoid processing input twice.
-        vte.set_input_enabled(false);
-        let im_context = IMMulticontext::new();
-        im_context.set_client_widget(Some(&vte));
-        im_context.connect_commit(glib::clone!(
+        // The Tmux VTE widget has no PTY; input handling (keymap translation,
+        // IME filtering, inline preedit display, caret location reporting) is
+        // left to VTE itself. VTE emits the translated input bytes on the
+        // `commit` signal even without a PTY, which we forward to Tmux.
+        vte.connect_commit(glib::clone!(
             #[weak]
             window,
-            move |_, text| {
-                window.tmux_send_text(pane_id, text);
-            }
-        ));
-
-        // Tell the IME where the caret is, so e.g. the fcitx candidate window
-        // pops up next to it instead of the window's top-left corner
-        vte.connect_cursor_moved(glib::clone!(
-            #[weak]
-            im_context,
-            move |vte| {
-                update_im_cursor_location(vte, &im_context);
+            move |_, text, _| {
+                window.tmux_send_input(pane_id, text);
             }
         ));
 
         vte.connect_has_focus_notify(glib::clone!(
             #[weak]
             top_level,
-            #[weak]
-            im_context,
             move |vte| {
                 if vte.has_focus() {
-                    update_im_cursor_location(vte, &im_context);
-                    im_context.focus_in();
                     // Notify TopLevel that the focused terminal changed
                     top_level.gtk_terminal_focus_changed(pane_id);
-                } else {
-                    im_context.focus_out();
                 }
             }
         ));
 
         let eventctl = EventControllerKey::new();
-        eventctl.set_im_context(Some(&im_context));
+        // Run in the capture phase, so keybindings take priority over VTE's
+        // own key handling (IME, keymap translation -> `commit`)
+        eventctl.set_propagation_phase(PropagationPhase::Capture);
         eventctl.connect_key_pressed(glib::clone!(
             #[weak]
             vte,
@@ -122,15 +104,13 @@ impl TmuxTerminal {
             window,
             #[upgrade_or]
             Propagation::Proceed,
-            move |eventctl, keyval, key, state| {
+            move |eventctl, _, _, _| {
                 if let Some(event) = eventctl.current_event() {
                     // Check if pressed keys match a keybinding
                     if let Some(action) = app.handle_keyboard_event(event) {
                         handle_keyboard_event(action, &vte, pane_id, &top_level, &window);
                         return Propagation::Stop;
                     }
-                    // Normal button press is handled separately for Tmux
-                    window.tmux_keypress(pane_id, key, keyval, state)
                 }
                 Propagation::Proceed
             }
@@ -263,25 +243,6 @@ impl TmuxTerminal {
         let vte = borrow_clone(&self.imp().vte);
         vte.feed(&clear_scrollback);
     }
-}
-
-/// Notify the input method of the caret position (widget coordinates), so
-/// candidate windows are placed next to the cursor
-fn update_im_cursor_location(vte: &Vte, im_context: &IMMulticontext) {
-    let (col, row) = vte.cursor_position();
-    let char_width = vte.char_width();
-    let char_height = vte.char_height();
-
-    // The row is in scrollback buffer coordinates, make it viewport-relative
-    let scroll_offset = vte
-        .vadjustment()
-        .map(|adjustment| adjustment.value())
-        .unwrap_or(0.0);
-
-    let x = col as f64 * char_width as f64;
-    let y = (row as f64 - scroll_offset) * char_height as f64;
-    let rect = Rectangle::new(x as i32, y as i32, char_width as i32, char_height as i32);
-    im_context.set_cursor_location(&rect);
 }
 
 #[inline]

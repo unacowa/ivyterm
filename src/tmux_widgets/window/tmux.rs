@@ -1,10 +1,7 @@
 use std::time::Duration;
 
 use glib::subclass::types::ObjectSubclassIsExt;
-use gtk4::{
-    gdk::{Key, ModifierType},
-    Orientation,
-};
+use gtk4::Orientation;
 use libadwaita::{glib, prelude::*};
 use log::debug;
 
@@ -47,16 +44,10 @@ impl IvyTmuxWindow {
         self.imp().char_size.get()
     }
 
-    pub fn tmux_keypress(&self, pane_id: u32, keycode: u32, keyval: Key, state: ModifierType) {
+    /// Send user input (as produced by VTE's `commit` signal) to Tmux
+    pub fn tmux_send_input(&self, pane_id: u32, text: &str) {
         if let Some(tmux) = get_tmux_ref(self) {
-            close_on_error!(tmux.send_keypress(pane_id, keycode, keyval, state), self);
-        }
-    }
-
-    /// Send literal text (e.g. committed by an input method) to Tmux
-    pub fn tmux_send_text(&self, pane_id: u32, text: &str) {
-        if let Some(tmux) = get_tmux_ref(self) {
-            close_on_error!(tmux.send_quoted_text(pane_id, text), self);
+            close_on_error!(tmux.send_input_bytes(pane_id, text), self);
         }
     }
 

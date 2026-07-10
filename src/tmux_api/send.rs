@@ -1,9 +1,8 @@
-use gtk4::gdk::{Key, ModifierType};
 use log::debug;
 
 use crate::{
     helpers::TmuxError,
-    keyboard::{gtk_key_to_tmux, Direction, KeyboardAction},
+    keyboard::{Direction, KeyboardAction},
     tmux_api::TmuxCommand,
 };
 
@@ -64,20 +63,20 @@ impl TmuxAPI {
         self.send_event(event, &cmd)
     }
 
-    pub fn send_keypress(
-        &self,
-        pane_id: u32,
-        keycode: u32,
-        keyval: Key,
-        state: ModifierType,
-    ) -> Result<(), TmuxError> {
-        let mut cmd = format!("send-keys -t %{} -H", pane_id);
+    /// Send raw input bytes (as produced by VTE's `commit` signal) to a pane
+    pub fn send_input_bytes(&self, pane_id: u32, text: &str) -> Result<(), TmuxError> {
+        use std::fmt::Write;
 
-        if !gtk_key_to_tmux(&mut cmd, keycode, keyval, state) {
-            return Ok(())
+        if text.is_empty() {
+            return Ok(());
         }
 
-        debug!("send_keypress: {}", &cmd[..cmd.len() - 1]);
+        let mut cmd = format!("send-keys -t %{} -H", pane_id);
+        for byte in text.bytes() {
+            write!(cmd, " {:#04X}", byte).unwrap();
+        }
+
+        debug!("send_input_bytes: {}", cmd);
         self.send_event(TmuxCommand::Keypress, &cmd)
     }
 
