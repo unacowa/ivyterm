@@ -1,0 +1,96 @@
+#!/bin/sh
+# ivysel - pick a tmux session with fzf and open it in ivyterm
+#
+# Usage: ivysel [-s <host>] [-c <command>]
+#   -s <host>     SSH host, passed through to ivyterm
+#   -c <command>  Command used to launch tmux, passed through to ivyterm
+#                 (e.g. "distrobox enter arch -- tmux")
+#
+# Opens a small terminal window with an fzf list of tmux sessions on the
+# target. Selecting an entry attaches to it; typing a new name creates a
+# new session.
+set -eu
+
+usage() {
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+host=""
+command=""
+pick=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -s|--ssh) shift; host="${1:?-s requires a value}" ;;
+        -c|--command) shift; command="${1:?-c requires a value}" ;;
+        --pick) pick=1 ;;
+        -h|--help) usage ;;
+        *) echo "ivysel: unknown argument: $1" >&2; usage 1 ;;
+    esac
+    shift
+done
+
+# Outer invocation: open a small terminal that runs this script again in
+# picker mode
+if [ "$pick" -eq 0 ]; then
+    self=$(readlink -f "$0")
+    for term in alacritty kitty foot konsole xterm; do
+        command -v "$term" >/dev/null 2>&1 || continue
+        case "$term" in
+            alacritty)
+                exec alacritty -T "ivysel" \
+                    -o window.dimensions.columns=70 -o window.dimensions.lines=20 \
+                    -e "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+            kitty)
+                exec kitty --title "ivysel" -o remember_window_size=no \
+                    -o initial_window_width=70c -o initial_window_height=20c \
+                    "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+            foot)
+                exec foot -T "ivysel" -W 70x20 \
+                    "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+            konsole)
+                exec konsole -p tabtitle=ivysel \
+                    -e "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+            xterm)
+                exec xterm -T "ivysel" -geometry 70x20 \
+                    -e "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+        esac
+    done
+    echo "ivysel: no terminal emulator found" >&2
+    exit 1
+fi
+
+# Picker mode (running inside the terminal we opened)
+tmux_cmd="${command:-tmux}"
+list_cmd="$tmux_cmd ls -F '#{session_name}'"
+
+if [ -n "$host" ]; then
+    target="$host"
+    sessions=$(ssh "$host" "$list_cmd" 2>/dev/null) || sessions=""
+else
+    target="local"
+    sessions=$(sh -c "$list_cmd" 2>/dev/null) || sessions=""
+fi
+
+set +e
+result=$(printf '%s\n' "$sessions" | fzf \
+    --print-query \
+    --prompt="tmux session> " \
+    --header="[$target] select a session, or type a new name" \
+    --reverse)
+status=$?
+set -e
+
+# 130 = aborted (ESC / Ctrl-C); 0 = selected; 1 = no match, use the query
+[ "$status" -eq 130 ] && exit 0
+
+query=$(printf '%s\n' "$result" | sed -n 1p)
+selection=$(printf '%s\n' "$result" | sed -n 2p)
+session="${selection:-$query}"
+[ -z "$session" ] && exit 0
+
+# Detach from this terminal so it can close while ivyterm lives on
+setsid -f ivyterm -t "$session" \
+    ${host:+-s "$host"} ${command:+-c "$command"} \
+    >/dev/null 2>&1
