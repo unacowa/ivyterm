@@ -1,9 +1,11 @@
 #!/bin/sh
 # ivysel - pick a tmux session with fzf and open it in ivyterm
 #
-# Usage: ivysel [-s <host>] [-c <command>]
-#   -s <host>     SSH host, passed through to ivyterm
-#   -c <command>  Command used to launch tmux, passed through to ivyterm
+# Usage: ivysel [-s <host> | -e <host>] [-c <command>]
+#   -s <host>     SSH host used to list sessions and to attach
+#   -e <host>     Like -s, but attach through Eternal Terminal (et);
+#                 sessions are still listed over ssh
+#   -c <command>  Command used to launch tmux on the target
 #                 (e.g. "distrobox enter arch -- tmux")
 #
 # Opens a small terminal window with an fzf list of tmux sessions on the
@@ -12,17 +14,19 @@
 set -eu
 
 usage() {
-    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
 host=""
+host_opt="-s"
 command=""
 pick=0
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        -s|--ssh) shift; host="${1:?-s requires a value}" ;;
+        -s|--ssh) shift; host="${1:?-s requires a value}"; host_opt="-s" ;;
+        -e|--et) shift; host="${1:?-e requires a value}"; host_opt="-e" ;;
         -c|--command) shift; command="${1:?-c requires a value}" ;;
         --pick) pick=1 ;;
         -h|--help) usage ;;
@@ -41,20 +45,20 @@ if [ "$pick" -eq 0 ]; then
             alacritty)
                 exec alacritty -T "ivysel" \
                     -o window.dimensions.columns=70 -o window.dimensions.lines=20 \
-                    -e "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
             kitty)
                 exec kitty --title "ivysel" -o remember_window_size=no \
                     -o initial_window_width=70c -o initial_window_height=20c \
-                    "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+                    "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
             foot)
                 exec foot -T "ivysel" -W 70x20 \
-                    "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+                    "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
             konsole)
                 exec konsole -p tabtitle=ivysel \
-                    -e "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
             xterm)
                 exec xterm -T "ivysel" -geometry 70x20 \
-                    -e "$self" --pick ${host:+-s "$host"} ${command:+-c "$command"} ;;
+                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
         esac
     done
     echo "ivysel: no terminal emulator found" >&2
@@ -90,7 +94,19 @@ selection=$(printf '%s\n' "$result" | sed -n 2p)
 session="${selection:-$query}"
 [ -z "$session" ] && exit 0
 
-# Detach from this terminal so it can close while ivyterm lives on
-setsid -f ivyterm -t "$session" \
-    ${host:+-s "$host"} ${command:+-c "$command"} \
-    >/dev/null 2>&1
+# Detach from this terminal so it can close while ivyterm lives on.
+# 'ivyterm attach' executes its arguments as-is; $command is intentionally
+# unquoted so it splits into words. Over ssh/et the remote shell re-splits
+# the joined words, so the session name gets quoted once more there.
+# et runs the command through a remote pty, so use -CC to make Tmux turn
+# off terminal echo
+if [ -n "$host" ] && [ "$host_opt" = "-e" ]; then
+    setsid -f ivyterm attach et "$host" \
+        -c "$tmux_cmd -2 -CC new-session -A -s '$session'" >/dev/null 2>&1
+elif [ -n "$host" ]; then
+    setsid -f ivyterm attach ssh "$host" ${command:-tmux} \
+        -2 -C new-session -A -s "'$session'" >/dev/null 2>&1
+else
+    setsid -f ivyterm attach ${command:-tmux} \
+        -2 -C new-session -A -s "$session" >/dev/null 2>&1
+fi
