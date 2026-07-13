@@ -125,7 +125,7 @@ impl<T: Eq + Clone> SortedVec<T> {
     }
 }
 
-pub fn open_editor(path: &str, ssh_target: &Option<String>) {
+pub fn open_editor(path: &str) {
     if path.is_empty() {
         return;
     }
@@ -137,16 +137,7 @@ pub fn open_editor(path: &str, ssh_target: &Option<String>) {
     command.stdin(Stdio::null());
     command.stdout(Stdio::null());
     command.stderr(Stdio::null());
-
-    // Check if this is a remote Tmux session and add this to the editor command
-    if let Some(ssh_target) = ssh_target {
-        // code --folder-uri vscode-remote://ssh-remote+1.2.3.4/path
-        command.arg("--folder-uri");
-        let arg = format!("vscode-remote://ssh-remote+{}{}", ssh_target, path);
-        command.arg(&arg);
-    } else {
-        command.arg(path);
-    }
+    command.arg(path);
 
     // Spawn editor
     match command.spawn() {

@@ -155,7 +155,6 @@ pub fn tmux_parse_line(state: &mut TmuxParserState, buffer: &[u8]) -> Result<usi
                 state.result_line,
                 state.empty_line_count,
                 &event_channel,
-                &state.ssh_target,
             )?;
         }
 
@@ -304,7 +303,6 @@ fn tmux_command_result(
     result_line: usize,
     empty_lines: usize,
     event_channel: &Sender<TmuxEvent>,
-    ssh_target: &Option<String>,
 ) -> Result<(), TmuxError> {
     match command {
         TmuxCommand::TabNew => {
@@ -339,7 +337,7 @@ fn tmux_command_result(
             // to filter manually
             if pane_id == *term_id {
                 let path = parse_utf8(&buffer[7 + bytes_read..])?;
-                open_editor(path, ssh_target);
+                open_editor(path);
             }
         }
         _ => {}
