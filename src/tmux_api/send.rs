@@ -245,6 +245,12 @@ impl TmuxAPI {
                 // Fullscreen is handled by the GTK window, not tmux
                 return Ok(());
             }
+            KeyboardAction::FontScaleIncrease
+            | KeyboardAction::FontScaleDecrease
+            | KeyboardAction::FontScaleReset => {
+                // Font scaling is handled by the GTK window, not tmux
+                return Ok(());
+            }
         };
 
         self.send_event(event, &cmd)

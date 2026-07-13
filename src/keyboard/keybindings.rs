@@ -58,6 +58,12 @@ pub struct Keybindings {
     clear_scrollback: String,
     #[serde(default = "default_toggle_fullscreen")]
     toggle_fullscreen: String,
+    #[serde(default = "default_font_scale_increase")]
+    font_scale_increase: String,
+    #[serde(default = "default_font_scale_decrease")]
+    font_scale_decrease: String,
+    #[serde(default = "default_font_scale_reset")]
+    font_scale_reset: String,
 }
 
 impl Keybindings {
@@ -147,6 +153,21 @@ impl Keybindings {
             KeyboardAction::ToggleFullscreen,
             "Toggle fullscreen mode",
         ));
+        keybindings.push(Keybinding::new(
+            &self.font_scale_increase,
+            KeyboardAction::FontScaleIncrease,
+            "Increase the font size",
+        ));
+        keybindings.push(Keybinding::new(
+            &self.font_scale_decrease,
+            KeyboardAction::FontScaleDecrease,
+            "Decrease the font size",
+        ));
+        keybindings.push(Keybinding::new(
+            &self.font_scale_reset,
+            KeyboardAction::FontScaleReset,
+            "Reset the font size",
+        ));
 
         keybindings
     }
@@ -177,6 +198,9 @@ impl Keybindings {
                 KeyboardAction::OpenEditorCwd => self.open_editor_cwd = trigger,
                 KeyboardAction::ClearScrollback => self.clear_scrollback = trigger,
                 KeyboardAction::ToggleFullscreen => self.toggle_fullscreen = trigger,
+                KeyboardAction::FontScaleIncrease => self.font_scale_increase = trigger,
+                KeyboardAction::FontScaleDecrease => self.font_scale_decrease = trigger,
+                KeyboardAction::FontScaleReset => self.font_scale_reset = trigger,
             }
         }
     }
@@ -218,6 +242,9 @@ impl Default for Keybindings {
             open_editor_cwd: default_open_editor_cwd(),
             clear_scrollback: default_clear_scrollback(),
             toggle_fullscreen: default_toggle_fullscreen(),
+            font_scale_increase: default_font_scale_increase(),
+            font_scale_decrease: default_font_scale_decrease(),
+            font_scale_reset: default_font_scale_reset(),
         }
     }
 }
@@ -269,4 +296,15 @@ fn default_clear_scrollback() -> String {
 }
 fn default_toggle_fullscreen() -> String {
     "F11".to_string()
+}
+fn default_font_scale_increase() -> String {
+    // GTK matches this with the consumed Shift on layouts where '+' is
+    // Shift+'=' (as in gnome-terminal)
+    "<Ctrl>plus".to_string()
+}
+fn default_font_scale_decrease() -> String {
+    "<Ctrl>minus".to_string()
+}
+fn default_font_scale_reset() -> String {
+    "<Ctrl>0".to_string()
 }

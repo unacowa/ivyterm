@@ -12,7 +12,7 @@ use tmux::TmuxInitState;
 use crate::{
     application::IvyApplication,
     config::{TerminalConfig, APPLICATION_TITLE, INITIAL_HEIGHT, INITIAL_WIDTH},
-    helpers::borrow_clone,
+    helpers::{adjusted_font_scale, borrow_clone},
     keyboard::KeyboardAction,
     tmux_api::TmuxAPI,
 };
@@ -222,6 +222,32 @@ impl IvyTmuxWindow {
         let mut terminals = self.imp().terminals.borrow_mut();
         terminals.remove(pane_id);
         debug!("Terminal with ID {} unregistered", pane_id);
+    }
+
+    /// Change the font scale of every Terminal in the window (a positive
+    /// delta zooms in, a negative one zooms out, 0 resets). The scale is
+    /// uniform across the window: the Tmux layout math assumes a single
+    /// cell size for all panes.
+    pub fn adjust_font_scale(&self, delta: i32) {
+        let imp = self.imp();
+        let char_size = {
+            let terminals = imp.terminals.borrow();
+            let Some(first) = terminals.iter().next() else {
+                return;
+            };
+
+            let scale = adjusted_font_scale(first.terminal.font_scale(), delta);
+            for sorted in terminals.iter() {
+                sorted.terminal.set_font_scale(scale);
+            }
+
+            first.terminal.get_char_width_height()
+        };
+
+        // The cell size changed, so the same window now holds a different
+        // number of cells; let Tmux know
+        imp.char_size.replace(char_size);
+        self.resync_tmux_size();
     }
 
     fn get_top_level(&self, id: u32) -> Option<TmuxTopLevel> {

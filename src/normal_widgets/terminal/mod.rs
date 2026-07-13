@@ -208,6 +208,14 @@ impl Terminal {
         self.imp().id.get()
     }
 
+    pub fn font_scale(&self) -> f64 {
+        borrow_clone(&self.imp().vte).font_scale()
+    }
+
+    pub fn set_font_scale(&self, scale: f64) {
+        borrow_clone(&self.imp().vte).set_font_scale(scale);
+    }
+
     pub fn update_config(&self, config: &TerminalConfig) {
         let color_scheme = ColorScheme::new(config);
         let vte = borrow_clone(&self.imp().vte);
@@ -296,5 +304,17 @@ fn handle_keyboard(action: KeyboardAction, terminal: &Terminal, top_level: &TopL
                 }
             }
         }
+        KeyboardAction::FontScaleIncrease => adjust_font_scale(top_level, 1),
+        KeyboardAction::FontScaleDecrease => adjust_font_scale(top_level, -1),
+        KeyboardAction::FontScaleReset => adjust_font_scale(top_level, 0),
+    }
+}
+
+fn adjust_font_scale(top_level: &TopLevel, delta: i32) {
+    if let Some(window) = top_level
+        .root()
+        .and_then(|root| root.downcast::<IvyNormalWindow>().ok())
+    {
+        window.adjust_font_scale(delta);
     }
 }

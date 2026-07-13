@@ -10,7 +10,7 @@ use log::debug;
 use crate::{
     application::IvyApplication,
     config::{TerminalConfig, APPLICATION_TITLE, INITIAL_HEIGHT, INITIAL_WIDTH},
-    helpers::borrow_clone,
+    helpers::{adjusted_font_scale, borrow_clone},
 };
 
 use super::{terminal::Terminal, toplevel::TopLevel};
@@ -185,6 +185,20 @@ impl IvyNormalWindow {
         let terminals = self.imp().terminals.borrow();
         for sorted in terminals.iter() {
             sorted.terminal.update_config(config);
+        }
+    }
+
+    /// Change the font scale of every Terminal in the window (a positive
+    /// delta zooms in, a negative one zooms out, 0 resets)
+    pub fn adjust_font_scale(&self, delta: i32) {
+        let terminals = self.imp().terminals.borrow();
+        let Some(first) = terminals.iter().next() else {
+            return;
+        };
+
+        let scale = adjusted_font_scale(first.terminal.font_scale(), delta);
+        for sorted in terminals.iter() {
+            sorted.terminal.set_font_scale(scale);
         }
     }
 }

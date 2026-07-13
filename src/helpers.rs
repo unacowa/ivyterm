@@ -223,3 +223,32 @@ where
 {
     cell.borrow().clone().unwrap()
 }
+
+/// One font zoom step (Ctrl+plus/minus/0). A positive delta zooms in, a
+/// negative one zooms out and 0 resets to the configured font size.
+pub fn adjusted_font_scale(current: f64, delta: i32) -> f64 {
+    const STEP: f64 = 1.2;
+    const MIN_SCALE: f64 = 0.25;
+    const MAX_SCALE: f64 = 4.0;
+
+    match delta {
+        0 => 1.0,
+        delta if delta > 0 => (current * STEP).min(MAX_SCALE),
+        _ => (current / STEP).max(MIN_SCALE),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::adjusted_font_scale;
+
+    #[test]
+    fn font_scale_steps_and_clamps() {
+        assert_eq!(adjusted_font_scale(1.0, 1), 1.2);
+        assert_eq!(adjusted_font_scale(1.2, -1), 1.0);
+        assert_eq!(adjusted_font_scale(2.5, 0), 1.0);
+        // Clamped at both ends
+        assert_eq!(adjusted_font_scale(4.0, 1), 4.0);
+        assert_eq!(adjusted_font_scale(0.25, -1), 0.25);
+    }
+}
