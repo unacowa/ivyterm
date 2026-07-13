@@ -12,6 +12,9 @@ pub struct TerminalPriv {
     /// True while a debounced selection -> Tmux buffer sync is scheduled
     /// (`selection-changed` fires on every pointer motion during a drag)
     pub selection_sync_scheduled: Cell<bool>,
+    /// Escape sequence split across %output chunks, held back until the
+    /// rest arrives (see filter_mouse_tracking)
+    pub pending_escape: RefCell<Vec<u8>>,
 }
 
 // The central trait for subclassing a GObject

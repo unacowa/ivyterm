@@ -237,8 +237,18 @@ impl TmuxTerminal {
             return;
         }
 
+        // Drop mouse tracking requests from pane applications before they
+        // reach VTE: with mouse tracking enabled VTE stops doing local
+        // selection and PRIMARY paste, handing the mouse to the application
+        // instead. In ivyterm, select-to-copy and middle-click paste always
+        // belong to the terminal
+        let filtered = {
+            let mut pending = imp.pending_escape.borrow_mut();
+            filter_mouse_tracking(&mut pending, &output)
+        };
+
         let vte = borrow_clone(&imp.vte);
-        vte.feed(&output);
+        vte.feed(&filtered);
     }
 
     pub fn initial_output_finished(&self) {
@@ -315,5 +325,174 @@ fn handle_keyboard_event(
         _ => {
             window.tmux_handle_keybinding(action, pane_id);
         }
+    }
+}
+
+/// DECSET/DECRST parameters that switch a terminal into mouse tracking
+/// (X10, normal, button-event, any-event tracking and the UTF-8/SGR/urxvt/
+/// SGR-pixel encodings)
+fn is_mouse_tracking_param(param: &[u8]) -> bool {
+    matches!(
+        param,
+        b"9" | b"1000" | b"1001" | b"1002" | b"1003" | b"1005" | b"1006" | b"1015" | b"1016"
+    )
+}
+
+/// An escape sequence this long is not a DECSET we care about; stop holding
+/// it back and pass it through
+const MAX_ESCAPE_HOLD: usize = 64;
+
+/// Removes mouse tracking DECSET/DECRST requests (e.g. \x1b[?1002;1006h)
+/// from a Tmux %output chunk, keeping all other sequences (?2004 bracketed
+/// paste, ?1049 alternate screen, ...) intact. A sequence may be split
+/// across chunks; the incomplete tail is stashed in `pending` and processed
+/// together with the next chunk.
+fn filter_mouse_tracking(pending: &mut Vec<u8>, chunk: &[u8]) -> Vec<u8> {
+    let joined: Vec<u8>;
+    let input: &[u8] = if pending.is_empty() {
+        chunk
+    } else {
+        let mut data = std::mem::take(pending);
+        data.extend_from_slice(chunk);
+        joined = data;
+        &joined
+    };
+
+    let mut output = Vec::with_capacity(input.len());
+    let mut i = 0;
+    while i < input.len() {
+        // Copy everything up to the next escape character verbatim
+        match input[i..].iter().position(|byte| *byte == 0x1b) {
+            Some(offset) => {
+                output.extend_from_slice(&input[i..i + offset]);
+                i += offset;
+            }
+            None => {
+                output.extend_from_slice(&input[i..]);
+                break;
+            }
+        }
+
+        let sequence = &input[i..];
+        // Not "ESC [ ?": pass the escape through and keep scanning behind it
+        if sequence.len() >= 2 && sequence[1] != b'[' {
+            output.push(0x1b);
+            i += 1;
+            continue;
+        }
+        if sequence.len() >= 3 && sequence[2] != b'?' {
+            output.extend_from_slice(&sequence[..2]);
+            i += 2;
+            continue;
+        }
+
+        // "ESC [ ?" so far; find the final byte of the sequence
+        let mut end = None;
+        for (j, byte) in sequence.iter().enumerate().skip(3) {
+            if !byte.is_ascii_digit() && *byte != b';' {
+                end = Some(j);
+                break;
+            }
+        }
+
+        match end {
+            Some(end) if sequence[end] == b'h' || sequence[end] == b'l' => {
+                // A private mode set/reset: filter out the mouse parameters
+                let final_byte = sequence[end] as char;
+                let kept: Vec<&[u8]> = sequence[3..end]
+                    .split(|byte| *byte == b';')
+                    .filter(|param| !is_mouse_tracking_param(param))
+                    .collect();
+                if !kept.is_empty() {
+                    output.extend_from_slice(b"\x1b[?");
+                    output.extend_from_slice(&kept.join(&b';'));
+                    output.push(final_byte as u8);
+                }
+                i += end + 1;
+            }
+            Some(end) => {
+                // Some other private sequence; pass it through verbatim
+                output.extend_from_slice(&sequence[..end + 1]);
+                i += end + 1;
+            }
+            None if sequence.len() < MAX_ESCAPE_HOLD => {
+                // The chunk ends in the middle of the sequence (this also
+                // covers a trailing lone ESC or "ESC ["); wait for the rest
+                pending.extend_from_slice(sequence);
+                break;
+            }
+            None => {
+                // Unreasonably long; not something we filter
+                output.extend_from_slice(sequence);
+                break;
+            }
+        }
+    }
+
+    output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::filter_mouse_tracking;
+
+    fn filter_all(chunks: &[&[u8]]) -> Vec<u8> {
+        let mut pending = Vec::new();
+        let mut output = Vec::new();
+        for chunk in chunks {
+            output.extend_from_slice(&filter_mouse_tracking(&mut pending, chunk));
+        }
+        // Nothing may be lost: a held-back tail belongs to the next chunk,
+        // which in these tests never comes
+        output.extend_from_slice(&pending);
+        output
+    }
+
+    #[test]
+    fn plain_text_passes_through() {
+        assert_eq!(filter_all(&[b"hello \x1b[1;31mworld\x1b[0m"]), b"hello \x1b[1;31mworld\x1b[0m");
+    }
+
+    #[test]
+    fn mouse_tracking_requests_are_dropped() {
+        assert_eq!(filter_all(&[b"a\x1b[?1002hb"]), b"ab");
+        assert_eq!(filter_all(&[b"a\x1b[?1000;1006hb"]), b"ab");
+        assert_eq!(filter_all(&[b"a\x1b[?1003;1015lb"]), b"ab");
+        assert_eq!(filter_all(&[b"a\x1b[?9hb"]), b"ab");
+    }
+
+    #[test]
+    fn other_private_modes_are_kept() {
+        assert_eq!(filter_all(&[b"\x1b[?2004h"]), b"\x1b[?2004h");
+        assert_eq!(filter_all(&[b"\x1b[?1049h"]), b"\x1b[?1049h");
+        assert_eq!(filter_all(&[b"\x1b[?25l"]), b"\x1b[?25l");
+    }
+
+    #[test]
+    fn mixed_parameters_keep_the_non_mouse_ones() {
+        assert_eq!(filter_all(&[b"\x1b[?1002;2004h"]), b"\x1b[?2004h");
+        assert_eq!(filter_all(&[b"\x1b[?2004;1006;25h"]), b"\x1b[?2004;25h");
+    }
+
+    #[test]
+    fn sequences_split_across_chunks_are_still_filtered() {
+        assert_eq!(filter_all(&[b"a\x1b[?10", b"02hb"]), b"ab");
+        assert_eq!(filter_all(&[b"a\x1b", b"[?1006;100", b"0hb"]), b"ab");
+        assert_eq!(filter_all(&[b"a\x1b", b"[?2004hb"]), b"a\x1b[?2004hb");
+    }
+
+    #[test]
+    fn non_decset_escapes_pass_through_unharmed() {
+        // Cursor movement, OSC, charset selection
+        assert_eq!(filter_all(&[b"\x1b[10;20H"]), b"\x1b[10;20H");
+        assert_eq!(filter_all(&[b"\x1b]0;title\x07"]), b"\x1b]0;title\x07");
+        assert_eq!(filter_all(&[b"\x1b(B"]), b"\x1b(B");
+    }
+
+    #[test]
+    fn overlong_private_sequence_is_not_held_forever() {
+        let mut data = b"\x1b[?".to_vec();
+        data.extend_from_slice(&[b'1'; 100]);
+        assert_eq!(filter_all(&[&data]), data);
     }
 }
