@@ -23,8 +23,37 @@ pub fn tmux_parse_data(
 
     for (i, b) in buffer.iter().enumerate() {
         if *b == b'\n' {
-            let buffer = &buffer[consumed_bytes..i];
-            consumed_bytes += tmux_parse_line(state, buffer)? + 1; // +1 to account for \n
+            let full_line = &buffer[consumed_bytes..i];
+            let mut line = full_line;
+            // Tolerate \r around lines; the transport may involve a pty
+            // (e.g. Eternal Terminal), which turns \n into \r\n. Any \r
+            // within %output content is octal-escaped, so a bare \r can
+            // only come from the transport
+            while line.last() == Some(&b'\r') {
+                line = &line[..line.len() - 1];
+            }
+
+            // A pty transport also mixes shell output (prompt echo, shell
+            // integration escape sequences, ...) into the stream before Tmux
+            // takes over, and the last chunk of it shares a line with the
+            // first %begin. Discard everything until that %begin; control
+            // mode output is guaranteed to start with one
+            if !state.preamble_done {
+                match line.windows(6).position(|w| w == b"%begin") {
+                    Some(pos) => {
+                        line = &line[pos..];
+                        state.preamble_done = true;
+                    }
+                    None => {
+                        // Junk line from before Tmux started
+                        consumed_bytes = i + 1;
+                        continue;
+                    }
+                }
+            }
+
+            let stripped = full_line.len() - line.len();
+            consumed_bytes += tmux_parse_line(state, line)? + stripped + 1; // +1 to account for \n
         }
     }
 
@@ -358,4 +387,37 @@ pub fn read_first_u32(buffer: &[u8]) -> (u32, usize) {
         i += 1;
     }
     (number, i + 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tmux_api::TmuxCommand;
+
+    #[test]
+    fn pty_junk_before_first_begin_is_discarded() {
+        let (event_tx, event_rx) = async_channel::unbounded();
+        let (cmd_tx, cmd_rx) = async_channel::unbounded();
+        cmd_tx.send_blocking(TmuxCommand::InitialLayout).unwrap();
+
+        let mut state = TmuxParserState::new(event_tx, cmd_rx.clone());
+        let mut ring = Ring::new(16_000).unwrap();
+
+        // Simulate a pty transport: prompt echo lines, then shell
+        // integration escape sequences sharing a line with the first %begin
+        let data = b"tmux -2 -C new-session; exit\r\n\x1b]133;A\x07mu@host:~$ tmux -2 -C new-session; exit\r\n\x1b[?2004l\r\x1b]133;C;\x07%begin 1 1 0\r\n%end 1 1 0\r\n";
+        ring.write(&data[..]).unwrap();
+        assert!(tmux_parse_data(&mut state, &mut ring).is_ok());
+
+        // If \r%begin was recognized, the queued command was consumed and
+        // %end fired InitialLayoutFinished
+        assert!(cmd_rx.is_empty(), "%begin did not consume the queued command");
+        let mut got_finished = false;
+        while let Ok(ev) = event_rx.try_recv() {
+            if matches!(ev, TmuxEvent::InitialLayoutFinished) {
+                got_finished = true;
+            }
+        }
+        assert!(got_finished, "InitialLayoutFinished was not emitted");
+    }
 }
