@@ -11,7 +11,6 @@ use crate::{
     application::IvyApplication,
     config::{TerminalConfig, APPLICATION_TITLE, INITIAL_HEIGHT, INITIAL_WIDTH},
     helpers::borrow_clone,
-    modals::spawn_new_tmux_modal,
 };
 
 use super::{terminal::Terminal, toplevel::TopLevel};
@@ -86,15 +85,6 @@ impl IvyNormalWindow {
         ));
 
         // Terminal settings
-        let tmux_button = Button::with_label("Tmux");
-        tmux_button.connect_clicked(glib::clone!(
-            #[weak]
-            window,
-            move |_| {
-                spawn_new_tmux_modal(window.upcast_ref());
-            }
-        ));
-        // Tmux session spawn
         let settings_button = Button::with_label("Settings");
         settings_button.connect_clicked(glib::clone!(
             #[weak]
@@ -105,7 +95,6 @@ impl IvyNormalWindow {
         ));
         // HeaderBar end widgets
         let end_widgets = Box::new(Orientation::Horizontal, 3);
-        end_widgets.append(&tmux_button);
         end_widgets.append(&settings_button);
 
         // View switcher for switching between open tabs
