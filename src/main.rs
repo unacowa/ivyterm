@@ -13,18 +13,27 @@ mod tmux_api;
 mod tmux_widgets;
 
 fn main() -> glib::ExitCode {
-    // Handle --help before GTK initialization
+    // Handle --help before GTK initialization. Only the first argument is
+    // considered, as "-h" may be part of the attach command
     let args: Vec<String> = std::env::args().collect();
-    if args[1..].iter().any(|a| a == "--help" || a == "-h") {
-        println!("Usage: ivyterm [OPTIONS]");
-        println!();
-        println!("Options:");
-        println!("  -t, --tmux <SESSION>     Attach to a tmux session");
-        println!("  -s, --ssh <HOST>         SSH host (e.g., user@host)");
-        println!("  -c, --command <COMMAND>  Command used to launch tmux");
-        println!("                           (e.g. \"distrobox enter arch -- tmux\")");
-        println!("  -h, --help               Show this help message");
-        std::process::exit(0);
+    if let Some(first) = args.get(1) {
+        if first == "--help" || first == "-h" {
+            println!("Usage:");
+            println!("  ivyterm                       Open a window with a normal terminal");
+            println!("  ivyterm attach <command...>   Run <command...> and attach to it as a Tmux");
+            println!("                                control mode client. The command must start");
+            println!("                                Tmux in control mode itself");
+            println!("  ivyterm -h, --help            Show this help message");
+            println!();
+            println!("Examples:");
+            println!("  ivyterm attach tmux -2 -C new-session -A -s main");
+            println!("  ivyterm attach ssh host tmux -2 -C new-session -A -s main");
+            println!("  ivyterm attach et host -c 'tmux -2 -CC new-session -A -s main'");
+            println!();
+            println!("With a transport that runs the command through a remote shell/pty");
+            println!("(e.g. et), use -CC so Tmux turns off terminal echo");
+            std::process::exit(0);
+        }
     }
 
     env_logger::init();
@@ -45,58 +54,23 @@ fn main() -> glib::ExitCode {
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
 
-        let mut tmux_session = None;
-        let mut ssh_host = None;
-        let mut tmux_command = None;
-        let mut i = 1; // skip program name
-
-        while i < args.len() {
-            match args[i].as_str() {
-                "--tmux" | "-t" => {
-                    i += 1;
-                    if i >= args.len() || args[i].starts_with('-') {
-                        eprintln!("Error: {} requires a value", args[i - 1]);
-                        return 1;
-                    }
-                    tmux_session = Some(args[i].clone());
-                }
-                "--ssh" | "-s" => {
-                    i += 1;
-                    if i >= args.len() || args[i].starts_with('-') {
-                        eprintln!("Error: {} requires a value", args[i - 1]);
-                        return 1;
-                    }
-                    ssh_host = Some(args[i].clone());
-                }
-                "--command" | "-c" => {
-                    i += 1;
-                    if i >= args.len() || args[i].starts_with('-') {
-                        eprintln!("Error: {} requires a value", args[i - 1]);
-                        return 1;
-                    }
-                    tmux_command = Some(args[i].clone());
-                }
-                arg => {
-                    eprintln!("Error: unknown argument '{}'", arg);
+        match args.get(1).map(|arg| arg.as_str()) {
+            Some("attach") => {
+                let attach_argv = &args[2..];
+                if attach_argv.is_empty() {
+                    eprintln!("Error: attach requires a command, e.g.");
+                    eprintln!("  ivyterm attach tmux -2 -C new-session -A -s main");
                     return 1;
                 }
+                app.new_tmux_window(attach_argv);
             }
-            i += 1;
-        }
-
-        if ssh_host.is_some() && tmux_session.is_none() {
-            eprintln!("Error: --ssh requires --tmux");
-            return 1;
-        }
-        if tmux_command.is_some() && tmux_session.is_none() {
-            eprintln!("Error: --command requires --tmux");
-            return 1;
-        }
-
-        if let Some(session) = tmux_session {
-            app.new_tmux_window(&session, ssh_host.as_deref(), tmux_command.as_deref());
-        } else {
-            app.new_normal_window();
+            Some(arg) => {
+                eprintln!("Error: unknown argument '{}'", arg);
+                return 1;
+            }
+            None => {
+                app.new_normal_window();
+            }
         }
 
         0

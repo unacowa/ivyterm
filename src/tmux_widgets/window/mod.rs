@@ -41,12 +41,7 @@ glib::wrapper! {
 }
 
 impl IvyTmuxWindow {
-    pub fn new(
-        app: &IvyApplication,
-        tmux_session: &str,
-        ssh_host: Option<&str>,
-        tmux_command: Option<&str>,
-    ) -> Self {
+    pub fn new(app: &IvyApplication, attach_argv: &[String]) -> Self {
         let window: Self = Object::builder().build();
         window.set_application(Some(app));
         window.set_title(Some(APPLICATION_TITLE));
@@ -161,25 +156,18 @@ impl IvyTmuxWindow {
         window_box.append(&tab_view);
         window.set_content(Some(&window_box));
 
-        window.initialize_tmux(tmux_session, ssh_host, tmux_command);
+        window.initialize_tmux(attach_argv);
 
         window
     }
 
-    fn initialize_tmux(
-        &self,
-        tmux_session: &str,
-        ssh_target: Option<&str>,
-        tmux_command: Option<&str>,
-    ) {
-        // Initialize Tmux API
-        let tmux = TmuxAPI::new(tmux_session, ssh_target, tmux_command, self).unwrap();
+    fn initialize_tmux(&self, attach_argv: &[String]) {
+        // Initialize Tmux API. The initial layout is requested once the
+        // session is confirmed attached (%session-changed): with a pty
+        // transport (e.g. Eternal Terminal) input written earlier would be
+        // consumed by the remote shell instead of Tmux
+        let tmux = TmuxAPI::new(attach_argv, self).unwrap();
         self.imp().tmux.replace(Some(Rc::new(tmux)));
-
-        // Get initial Tmux layout
-        if let Some(tmux) = get_tmux_ref(self) {
-            close_on_error!(tmux.get_initial_layout(), self);
-        }
     }
 
     pub fn new_tab(&self, id: u32) -> TmuxTopLevel {

@@ -1,5 +1,7 @@
 use std::cell::{Cell, RefCell};
+use std::fs::File;
 use std::io::{Read, Write};
+use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 
 use async_channel::{Receiver, Sender};
@@ -110,7 +112,6 @@ pub enum TmuxPane {
 }
 
 struct TmuxParserState {
-    ssh_target: Option<String>,
     event_channel: Sender<TmuxEvent>,
     command_queue: Receiver<TmuxCommand>,
     current_command: Option<TmuxCommand>,
@@ -119,34 +120,31 @@ struct TmuxParserState {
     empty_line_count: usize,
     /// Accumulates multi-line output of `show-buffer` (FetchBuffer command)
     fetch_buffer: Vec<u8>,
+    /// False until the first %begin is seen; shell output arriving before it
+    /// (prompt echo over a pty transport, ...) is discarded
+    preamble_done: bool,
 }
 
 impl TmuxParserState {
     fn new(
         tmux_event_sender: Sender<TmuxEvent>,
         cmd_queue_receiver: Receiver<TmuxCommand>,
-        ssh_target: Option<String>,
     ) -> Self {
         Self {
             command_queue: cmd_queue_receiver,
             event_channel: tmux_event_sender,
             current_command: None,
             is_error: false,
-            ssh_target,
             result_line: 0,
             empty_line_count: 0,
             fetch_buffer: Vec::new(),
+            preamble_done: false,
         }
     }
 }
 
 impl TmuxAPI {
-    pub fn new(
-        session_name: &str,
-        ssh_target: Option<&str>,
-        tmux_command: Option<&str>,
-        window: &IvyTmuxWindow,
-    ) -> Result<TmuxAPI, IvyError> {
+    pub fn new(argv: &[String], window: &IvyTmuxWindow) -> Result<TmuxAPI, IvyError> {
         // Create async channels
         let (tmux_event_sender, tmux_event_receiver): (Sender<TmuxEvent>, Receiver<TmuxEvent>) =
             async_channel::unbounded();
@@ -157,14 +155,8 @@ impl TmuxAPI {
         // Parse attach output
         cmd_queue_sender.send_blocking(TmuxCommand::Init).unwrap();
 
-        // Spawn TMUX subprocess (through the system ssh client if a host is given)
-        let writer = spawn_tmux(
-            session_name,
-            ssh_target,
-            tmux_command,
-            tmux_event_sender,
-            cmd_queue_receiver,
-        )?;
+        // Spawn TMUX subprocess
+        let writer = spawn_tmux(argv, tmux_event_sender, cmd_queue_receiver)?;
 
         // Receive events from the channel on main thread
         let receive_future = glib::spawn_future_local(glib::clone!(
@@ -211,60 +203,85 @@ fn read_into_ringbuffer<T: Read>(
 }
 
 fn spawn_tmux(
-    session_name: &str,
-    ssh_target: Option<&str>,
-    tmux_command: Option<&str>,
+    argv: &[String],
     tmux_event_sender: Sender<TmuxEvent>,
     cmd_queue_receiver: Receiver<TmuxCommand>,
 ) -> Result<Box<dyn Write>, IvyError> {
-    // The command which launches Tmux can be overridden, e.g.
-    // "distrobox enter arch -- tmux"
-    let tmux_command = tmux_command.unwrap_or("tmux");
-    let mut tmux_args = tmux_command.split_whitespace();
-    let tmux_program = tmux_args.next().unwrap_or("tmux");
+    // The command is responsible for starting Tmux in control mode itself
+    // (including "-2 -C new-session ..."), which allows arbitrary transports
+    // (ssh, et, distrobox, ...)
+    let (program, args) = argv.split_first().ok_or(IvyError::TmuxSpawnFailed)?;
+    println!("Attaching to Tmux using command: {}", argv.join(" "));
 
-    // When an SSH host is given, run Tmux remotely through the system ssh
-    // client, so the user's full SSH configuration (aliases, IdentityFile,
-    // ProxyJump, ...) applies
-    let mut command = if let Some(host) = ssh_target {
-        println!(
-            "Attaching to Tmux session {} on {} ({})",
-            session_name, host, tmux_command
-        );
-        let mut command = Command::new("ssh");
-        command.arg(host).arg(tmux_program);
-        command
-    } else {
-        println!(
-            "Attaching to Tmux session {} ({})",
-            session_name, tmux_command
-        );
-        Command::new(tmux_program)
+    // Spawn the command on a pty rather than pipes: some transports
+    // (e.g. Eternal Terminal) require a real terminal and silently discard
+    // piped stdin. Raw mode prevents the pty from echoing our commands back
+    // into the output stream and from mangling line endings
+    // A real (nonzero) window size matters: transports forward it to the
+    // remote pty, and e.g. `podman exec -t` (distrobox) produces no output
+    // on a 0x0 terminal. Tmux itself ignores the control client's size;
+    // ivyterm reports pane sizes via refresh-client instead
+    let winsize = nix::pty::Winsize {
+        ws_row: 24,
+        ws_col: 80,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
     };
-    command.args(tmux_args);
-
-    let mut process = command
-        .arg("-2")
-        .arg("-C")
-        .arg("new-session")
-        .arg("-A")
-        .arg("-s")
-        .arg(session_name)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
+    let pty = nix::pty::openpty(Some(&winsize), None).map_err(|err| {
+        eprintln!("Failed to open pty: {}", err);
+        IvyError::TmuxSpawnFailed
+    })?;
+    let mut termios = nix::sys::termios::tcgetattr(&pty.slave).map_err(|err| {
+        eprintln!("Failed to get pty termios: {}", err);
+        IvyError::TmuxSpawnFailed
+    })?;
+    nix::sys::termios::cfmakeraw(&mut termios);
+    nix::sys::termios::tcsetattr(&pty.slave, nix::sys::termios::SetArg::TCSANOW, &termios)
         .map_err(|err| {
-            eprintln!("Failed to spawn Tmux: {}", err);
+            eprintln!("Failed to set pty termios: {}", err);
             IvyError::TmuxSpawnFailed
         })?;
 
-    // Read from Tmux STDOUT and send events to the channel on a separate thread
-    let mut stdout_stream = process.stdout.take().expect("Failed to open stdout");
-    let ssh_target = ssh_target.map(|host| host.to_string());
+    let mut command = Command::new(program);
+    command.args(args);
+    // Transports with a remote pty (et) forward TERM to the target, which
+    // may lack the terminfo entry ivyterm inherited (e.g. inside a
+    // container); Tmux then refuses to start. The control mode client
+    // never draws, so a universally available TERM works everywhere
+    command.env("TERM", "xterm-256color");
+    let slave_stdout = pty.slave.try_clone().map_err(|err| {
+        eprintln!("Failed to clone pty fd: {}", err);
+        IvyError::TmuxSpawnFailed
+    })?;
+    command
+        .stdin(pty.slave)
+        .stdout(slave_stdout)
+        .stderr(Stdio::inherit());
+    // Make the pty the controlling terminal of the child, in case the
+    // command opens /dev/tty
+    unsafe {
+        command.pre_exec(|| {
+            nix::libc::setsid();
+            nix::libc::ioctl(0, nix::libc::TIOCSCTTY, 0);
+            Ok(())
+        });
+    }
+    command.spawn().map_err(|err| {
+        eprintln!("Failed to spawn Tmux: {}", err);
+        IvyError::TmuxSpawnFailed
+    })?;
+
+    let master_write = pty.master.try_clone().map_err(|err| {
+        eprintln!("Failed to clone pty fd: {}", err);
+        IvyError::TmuxSpawnFailed
+    })?;
+
+    // Read Tmux output from the pty master and send events to the channel
+    // on a separate thread
+    let mut stdout_stream = File::from(pty.master);
     spawn_blocking(move || {
         let mut ring_buffer = Ring::new(16_000).unwrap();
-        let mut state = TmuxParserState::new(tmux_event_sender, cmd_queue_receiver, ssh_target);
+        let mut state = TmuxParserState::new(tmux_event_sender, cmd_queue_receiver);
 
         loop {
             match read_into_ringbuffer(&mut stdout_stream, &mut ring_buffer) {
@@ -281,8 +298,11 @@ fn spawn_tmux(
                 Err(_) => break,
             }
         }
+
+        // The pty read fails once the child exits (EIO); close the window
+        // instead of leaving it attached to a dead transport
+        let _ = state.event_channel.send_blocking(TmuxEvent::Exit);
     });
 
-    let stdin_stream = process.stdin.take().expect("Failed to open stdin");
-    return Ok(Box::new(stdin_stream));
+    return Ok(Box::new(File::from(master_write)));
 }

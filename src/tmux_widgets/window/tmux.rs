@@ -34,7 +34,7 @@ impl Default for TmuxInitState {
 }
 
 // Tmux session initialization:
-// 1. TmuxWindow constructor calls tmux.get_initial_layout()
+// 1. %session-changed (Tmux confirmed attached) triggers tmux.get_initial_layout()
 // 2. We receive initial layout, which is used to construct the hierarchy
 // 3. TopLevel layout.alloc_changed() triggers, which sends Tmux size sync event
 // 4. After we receive Tmux size sync conformation, we start getting initial output
@@ -258,6 +258,12 @@ impl IvyTmuxWindow {
                     if old != new {
                         println!("Session {} changed underneath us, closing Window", old.1);
                         self.close();
+                    }
+                } else {
+                    // Tmux is now attached and owns the transport; it is
+                    // safe to start sending commands
+                    if let Some(tmux) = get_tmux_ref(self) {
+                        close_on_error!(tmux.get_initial_layout(), self);
                     }
                 }
 
