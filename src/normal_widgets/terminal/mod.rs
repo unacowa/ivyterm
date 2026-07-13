@@ -11,7 +11,7 @@ use vte4::{PtyFlags, Regex, Terminal as Vte, TerminalExt, TerminalExtManual};
 use crate::{
     application::IvyApplication,
     config::{ColorScheme, TerminalConfig},
-    helpers::{borrow_clone, PCRE2_MULTILINE, URL_REGEX_STRINGS},
+    helpers::{borrow_clone, open_editor, PCRE2_MULTILINE, URL_REGEX_STRINGS},
     keyboard::KeyboardAction,
     unwrap_or_return,
 };
@@ -263,8 +263,22 @@ fn handle_keyboard(action: KeyboardAction, terminal: &Terminal, top_level: &TopL
             vte.paste_clipboard();
         }
         KeyboardAction::OpenEditorCwd => {
-            // https://stackoverflow.com/questions/6016219/get-current-working-directory-from-vte-gtk-terminal-widget-in-python
-            todo!()
+            // VTE learns the shell's working directory through OSC 7
+            // (requires shell integration) and exposes it as a file:// URI.
+            // Without it there is nothing to open; log instead of crashing
+            // (this used to be todo!(), aborting the whole app)
+            if let Some(uri) = vte.current_directory_uri() {
+                match glib::filename_from_uri(&uri) {
+                    Ok((path, _)) => open_editor(&path.to_string_lossy()),
+                    Err(err) => {
+                        eprintln!("Cannot parse working directory URI {}: {}", uri, err)
+                    }
+                }
+            } else {
+                eprintln!(
+                    "Cannot open editor: the shell did not report its working directory (OSC 7)"
+                );
+            }
         }
         KeyboardAction::ClearScrollback => {
             let clear_scrollback = [b'\x1b', b'[', b'3', b'J'];
