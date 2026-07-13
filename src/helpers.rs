@@ -137,7 +137,9 @@ pub fn open_editor(path: &str) {
     command.stdin(Stdio::null());
     command.stdout(Stdio::null());
     command.stderr(Stdio::null());
-    command.arg(path);
+    // The pane path comes from Tmux (possibly a remote session); "--" keeps
+    // a path that looks like an option (e.g. "--folder-uri=...") positional
+    command.arg("--").arg(path);
 
     // Spawn editor
     match command.spawn() {
