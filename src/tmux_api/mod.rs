@@ -26,6 +26,9 @@ pub struct TmuxAPI {
     window_size: Cell<(i32, i32)>,
     resize_future: Cell<bool>,
     receive_future: JoinHandle<()>,
+    /// Number of %paste-buffer-changed notifications caused by our own
+    /// set_buffer calls; those must not be fetched back into the clipboard
+    pending_buffer_echoes: Cell<usize>,
 }
 
 impl Drop for TmuxAPI {
@@ -63,6 +66,7 @@ pub enum TmuxCommand {
     ChangeSize(i32, i32),
     InitialOutput(u32),
     FetchBuffer,
+    SetBuffer,
     ClearScrollback(u32),
 }
 
@@ -172,6 +176,7 @@ impl TmuxAPI {
             window_size: Cell::new((0, 0)),
             resize_future: Cell::new(false),
             receive_future,
+            pending_buffer_echoes: Cell::new(0),
         };
 
         Ok(tmux)

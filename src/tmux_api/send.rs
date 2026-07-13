@@ -8,6 +8,27 @@ use crate::{
 
 use super::TmuxAPI;
 
+/// Escapes arbitrary text for use inside a double-quoted Tmux command
+/// argument. Everything but the safest ASCII characters is emitted as a
+/// \ooo octal escape, sidestepping all of Tmux's quoting, format (#{...})
+/// and variable ($...) expansion rules; Tmux decodes the octal escapes
+/// back to raw bytes
+fn escape_for_tmux_quotes(text: &str) -> String {
+    use std::fmt::Write;
+
+    let mut escaped = String::with_capacity(text.len());
+    for byte in text.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' => escaped.push(byte as char),
+            b' ' | b',' | b'.' | b'_' | b'-' | b'/' | b':' | b'=' | b'+' | b'@' => {
+                escaped.push(byte as char)
+            }
+            _ => write!(escaped, "\\{:03o}", byte).unwrap(),
+        }
+    }
+    escaped
+}
+
 impl TmuxAPI {
     #[inline]
     fn send_event(&self, event: TmuxCommand, cmd: &str) -> Result<(), TmuxError> {
@@ -103,6 +124,43 @@ impl TmuxAPI {
         debug!("Fetching paste buffer: {}", name);
         let cmd = format!("show-buffer -b \"{}\"", name);
         self.send_event(TmuxCommand::FetchBuffer, &cmd)
+    }
+
+    /// Store text in a new automatic Tmux paste buffer, making it the most
+    /// recent one (what prefix-] and other clients paste). Used to sync the
+    /// local selection to Tmux.
+    pub fn set_buffer(&self, text: &str) -> Result<(), TmuxError> {
+        // Selections are typically small; anything huge would produce a
+        // multi-megabyte command line and stall the UI on the blocking
+        // stdin write, so leave those to Tmux copy-mode instead
+        const MAX_SYNC_BYTES: usize = 256 * 1024;
+        if text.len() > MAX_SYNC_BYTES {
+            eprintln!(
+                "Not syncing selection to Tmux: {} bytes exceeds the {} byte limit",
+                text.len(),
+                MAX_SYNC_BYTES
+            );
+            return Ok(());
+        }
+
+        // The %paste-buffer-changed this triggers is our own echo; mark it
+        // so the window does not fetch it back into the system clipboard
+        self.pending_buffer_echoes
+            .set(self.pending_buffer_echoes.get() + 1);
+
+        let cmd = format!("set-buffer -- \"{}\"", escape_for_tmux_quotes(text));
+        self.send_event(TmuxCommand::SetBuffer, &cmd)
+    }
+
+    /// Returns true when a %paste-buffer-changed notification was caused by
+    /// our own set_buffer (and consumes that marker)
+    pub fn consume_buffer_echo(&self) -> bool {
+        let pending = self.pending_buffer_echoes.get();
+        if pending > 0 {
+            self.pending_buffer_echoes.set(pending - 1);
+            return true;
+        }
+        false
     }
 
     // TODO: Too many functions for sending text
@@ -238,5 +296,42 @@ impl TmuxAPI {
         };
         let cmd = format!("resize-pane -{} -t %{} {}", direction, term_id, amount);
         self.send_event(event, &cmd)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_passes_safe_characters_through() {
+        assert_eq!(
+            escape_for_tmux_quotes("hello World.txt /path:2, a=b+c@d"),
+            "hello World.txt /path:2, a=b+c@d"
+        );
+    }
+
+    #[test]
+    fn escape_encodes_tmux_metacharacters() {
+        // Quote and backslash would break out of the double-quoted string
+        assert_eq!(escape_for_tmux_quotes("a\"b"), "a\\042b");
+        assert_eq!(escape_for_tmux_quotes("a\\b"), "a\\134b");
+        // $, #, ; and { would trigger expansion or command separation
+        assert_eq!(escape_for_tmux_quotes("$HOME"), "\\044HOME");
+        assert_eq!(escape_for_tmux_quotes("#{pane_id}"), "\\043\\173pane_id\\175");
+        assert_eq!(escape_for_tmux_quotes("a;b"), "a\\073b");
+    }
+
+    #[test]
+    fn escape_encodes_newlines_and_control_characters() {
+        assert_eq!(escape_for_tmux_quotes("a\nb"), "a\\012b");
+        assert_eq!(escape_for_tmux_quotes("a\tb"), "a\\011b");
+        assert_eq!(escape_for_tmux_quotes("a\rb"), "a\\015b");
+    }
+
+    #[test]
+    fn escape_encodes_utf8_bytes_individually() {
+        // "あ" = 0xE3 0x81 0x82; Tmux reassembles the raw bytes
+        assert_eq!(escape_for_tmux_quotes("あ"), "\\343\\201\\202");
     }
 }

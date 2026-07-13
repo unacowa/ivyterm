@@ -91,6 +91,48 @@ impl TmuxTerminal {
             }
         ));
 
+        // Keep the Tmux paste buffer in sync with the local mouse selection,
+        // so tmux-side paste (prefix-], other clients) sees what the user
+        // selected. The selection already owns PRIMARY (VTE does that), which
+        // is what middle-click paste uses. Debounced, since the signal fires
+        // on every pointer motion while dragging out a selection
+        vte.connect_selection_changed(glib::clone!(
+            #[weak]
+            terminal,
+            #[weak]
+            window,
+            move |vte| {
+                if !vte.has_selection() {
+                    // The selection was cleared; keep the last synced buffer
+                    return;
+                }
+                if terminal.imp().selection_sync_scheduled.replace(true) {
+                    return;
+                }
+
+                glib::timeout_add_local_once(
+                    std::time::Duration::from_millis(200),
+                    glib::clone!(
+                        #[weak]
+                        vte,
+                        #[weak]
+                        terminal,
+                        #[weak]
+                        window,
+                        move || {
+                            terminal.imp().selection_sync_scheduled.replace(false);
+                            if !vte.has_selection() {
+                                return;
+                            }
+                            if let Some(text) = vte.text_selected(vte4::Format::Text) {
+                                window.tmux_sync_selection(&text);
+                            }
+                        }
+                    ),
+                );
+            }
+        ));
+
         let eventctl = EventControllerKey::new();
         // Run in the capture phase, so keybindings take priority over VTE's
         // own key handling (IME, keymap translation -> `commit`)
@@ -157,7 +199,9 @@ impl TmuxTerminal {
                         }
                     }
                     // Middle click paste (PRIMARY selection) is handled by
-                    // VTE itself and forwarded via the `commit` signal
+                    // VTE itself (as long as the GTK setting
+                    // gtk-enable-primary-paste is on) and forwarded to Tmux
+                    // via the `commit` signal
                     _ => {}
                 }
             }

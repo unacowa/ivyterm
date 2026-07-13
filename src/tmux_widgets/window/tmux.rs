@@ -58,6 +58,14 @@ impl IvyTmuxWindow {
         }
     }
 
+    /// Sync locally selected text into a Tmux paste buffer, so tmux-side
+    /// paste (prefix-], other clients) sees what the user selected
+    pub fn tmux_sync_selection(&self, text: &str) {
+        if let Some(tmux) = get_tmux_ref(self) {
+            close_on_error!(tmux.set_buffer(text), self);
+        }
+    }
+
 
     fn tmux_sync_size(&self) {
         let imp = self.imp();
@@ -271,7 +279,12 @@ impl IvyTmuxWindow {
             }
             TmuxEvent::PasteBufferChanged(name) => {
                 if let Some(tmux) = get_tmux_ref(self) {
-                    close_on_error!(tmux.fetch_buffer(&name), self);
+                    // Skip buffers we just set from a local selection;
+                    // fetching those back would clobber the system
+                    // clipboard with every mouse selection
+                    if !tmux.consume_buffer_echo() {
+                        close_on_error!(tmux.fetch_buffer(&name), self);
+                    }
                 }
             }
             TmuxEvent::ClipboardText(text) => {

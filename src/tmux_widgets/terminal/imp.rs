@@ -9,6 +9,9 @@ pub struct TerminalPriv {
     pub vte: RefCell<Option<Vte>>,
     pub id: Cell<u32>,
     initial_output: Cell<bool>,
+    /// True while a debounced selection -> Tmux buffer sync is scheduled
+    /// (`selection-changed` fires on every pointer motion during a drag)
+    pub selection_sync_scheduled: Cell<bool>,
 }
 
 // The central trait for subclassing a GObject
