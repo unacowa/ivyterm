@@ -11,6 +11,7 @@ pub enum IvyError {
     TmuxSpawnFailed = 0,
 }
 
+#[derive(Debug)]
 pub enum TmuxError {
     EventChannelClosed,
     ExitEventReceived,
