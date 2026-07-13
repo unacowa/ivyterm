@@ -26,5 +26,8 @@ pub enum KeyboardAction {
     PasteClipboard,
     OpenEditorCwd,
     ClearScrollback,
+    FontScaleIncrease,
+    FontScaleDecrease,
+    FontScaleReset,
 }
 

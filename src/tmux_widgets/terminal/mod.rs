@@ -288,6 +288,14 @@ impl TmuxTerminal {
         (vte.char_width() as i32, vte.char_height() as i32)
     }
 
+    pub fn font_scale(&self) -> f64 {
+        borrow_clone(&self.imp().vte).font_scale()
+    }
+
+    pub fn set_font_scale(&self, scale: f64) {
+        borrow_clone(&self.imp().vte).set_font_scale(scale);
+    }
+
     pub fn clear_scrollback(&self) {
         let clear_scrollback = [b'\x1b', b'[', b'3', b'J'];
         let vte = borrow_clone(&self.imp().vte);
@@ -321,6 +329,15 @@ fn handle_keyboard_event(
             } else {
                 window.fullscreen();
             }
+        }
+        KeyboardAction::FontScaleIncrease => {
+            window.adjust_font_scale(1);
+        }
+        KeyboardAction::FontScaleDecrease => {
+            window.adjust_font_scale(-1);
+        }
+        KeyboardAction::FontScaleReset => {
+            window.adjust_font_scale(0);
         }
         _ => {
             window.tmux_handle_keybinding(action, pane_id);
