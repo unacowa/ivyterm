@@ -72,6 +72,9 @@ pub enum TmuxCommand {
 
 pub enum TmuxEvent {
     ScrollOutput(u32, usize),
+    /// A Keypress command completed its %begin/%end round trip; used to
+    /// measure the transport RTT for predictive echo
+    KeypressAck,
     InitialLayout(LayoutSync),
     InitialLayoutFinished,
     InitialOutputFinished(u32),
