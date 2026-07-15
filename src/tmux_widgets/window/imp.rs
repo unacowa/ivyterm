@@ -1,5 +1,7 @@
 use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 use std::rc::Rc;
+use std::time::Instant;
 
 use glib::Propagation;
 use libadwaita::subclass::prelude::*;
@@ -24,6 +26,12 @@ pub struct IvyWindowPriv {
     pub focused_tab: Cell<u32>,
     pub session: Cell<Option<(u32, String)>>,
     pub init_layout_finished: Cell<TmuxInitState>,
+    /// Send times of in-flight Keypress commands (FIFO, paired with
+    /// %begin/%end replies) for measuring the transport RTT
+    pub keypress_sent: RefCell<VecDeque<Instant>>,
+    /// Exponential moving average of the transport RTT in milliseconds;
+    /// 0.0 until the first sample
+    pub echo_rtt_ms: Cell<f64>,
 }
 
 // The central trait for subclassing a GObject

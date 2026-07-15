@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk4::Orientation;
@@ -7,6 +7,7 @@ use log::debug;
 
 use crate::{
     close_on_error,
+    config::PredictiveEchoMode,
     helpers::borrow_clone,
     keyboard::Direction,
     tmux_api::{LayoutFlags, LayoutSync, TmuxEvent},
@@ -19,6 +20,12 @@ use crate::{
 use super::IvyTmuxWindow;
 
 const RESIZE_TIMEOUT: Duration = Duration::from_millis(5);
+/// A Keypress reply older than this is not a usable RTT sample
+const RTT_SAMPLE_TIMEOUT: Duration = Duration::from_secs(2);
+/// Smoothing factor of the RTT exponential moving average
+const RTT_EMA_ALPHA: f64 = 0.3;
+/// In auto mode, predictions are displayed above this average RTT
+const RTT_PREDICTION_THRESHOLD_MS: f64 = 50.0;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum TmuxInitState {
@@ -54,7 +61,53 @@ impl IvyTmuxWindow {
     /// Send user input (as produced by VTE's `commit` signal) to Tmux
     pub fn tmux_send_input(&self, pane_id: u32, text: &str) {
         if let Some(tmux) = get_tmux_ref(self) {
+            // Record the send time; the %begin/%end reply of the Keypress
+            // command (KeypressAck) completes the RTT sample
+            {
+                let mut sent = self.imp().keypress_sent.borrow_mut();
+                // Entries whose reply never came (e.g. %error) would skew
+                // the FIFO pairing forever; drop stale ones
+                while let Some(first) = sent.front() {
+                    if first.elapsed() > RTT_SAMPLE_TIMEOUT {
+                        sent.pop_front();
+                    } else {
+                        break;
+                    }
+                }
+                sent.push_back(Instant::now());
+            }
             close_on_error!(tmux.send_input_bytes(pane_id, text), self);
+        }
+    }
+
+    /// Whether predictions should currently be displayed, given the
+    /// configured mode and the measured transport RTT
+    pub fn predictive_echo_active(&self, mode: PredictiveEchoMode) -> bool {
+        match mode {
+            PredictiveEchoMode::Off => false,
+            PredictiveEchoMode::Always => true,
+            PredictiveEchoMode::Auto => self.imp().echo_rtt_ms.get() > RTT_PREDICTION_THRESHOLD_MS,
+        }
+    }
+
+    fn record_keypress_ack(&self) {
+        let imp = self.imp();
+        let sample = imp.keypress_sent.borrow_mut().pop_front();
+        // An ack without a matching send (e.g. a function key sent through
+        // another code path) is simply ignored
+        if let Some(sent_at) = sample {
+            let rtt_ms = sent_at.elapsed().as_secs_f64() * 1000.0;
+            if rtt_ms > RTT_SAMPLE_TIMEOUT.as_secs_f64() * 1000.0 {
+                return;
+            }
+
+            let ema = imp.echo_rtt_ms.get();
+            let updated = if ema == 0.0 {
+                rtt_ms
+            } else {
+                ema * (1.0 - RTT_EMA_ALPHA) + rtt_ms * RTT_EMA_ALPHA
+            };
+            imp.echo_rtt_ms.replace(updated);
         }
     }
 
@@ -152,6 +205,9 @@ impl IvyTmuxWindow {
                 if let Some(pane) = terminals.get(pane_id) {
                     pane.feed_output(output, initial);
                 }
+            }
+            TmuxEvent::KeypressAck => {
+                self.record_keypress_ack();
             }
             TmuxEvent::PaneFocusChanged(tab_id, term_id) => {
                 if let Some(top_level) = self.get_top_level(tab_id) {

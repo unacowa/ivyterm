@@ -43,6 +43,28 @@ How the subprocess is run:
 * Use `-CC` instead of `-C`, so Tmux disables terminal echo on that remote pty. Otherwise every control mode command ivyTerm sends would be echoed back into the output stream.
 * The shell prompt and command echo preceding Tmux startup are discarded by the parser (see above); this is expected noise, not an error.
 
+### Predictive echo
+Over a slow link, ivyTerm can locally echo your keystrokes before the remote
+echo arrives, mosh-style. Predicted text is drawn underlined with the caret
+at its end; it is confirmed (and loses the underline) as the real echo
+arrives, and discarded on mismatch, on control keys or after 2 seconds.
+Backspace shrinks the pending prediction, and IME-committed text (e.g.
+Japanese) is predicted like any other input.
+
+The Settings window offers three modes (default: Auto):
+* **Auto** — predictions appear only when the measured transport RTT exceeds
+  50 ms, so local sessions stay prediction-free
+* **Always** / **Off**
+
+Safety and limitations:
+* Nothing is displayed until the remote confirms at least one predicted
+  character since the last discard, so no-echo input (password prompts)
+  never shows up on screen
+* The prediction overlay never touches the terminal buffer; Tmux remains
+  the single source of truth
+* While composing text with an IME, the preedit string is drawn by VTE at
+  the position where the prediction started, not at its end
+
 ### ivysel session picker
 `scripts/ivysel` is a small fzf-based picker: it opens a scratch terminal window (alacritty, kitty, foot, konsole or xterm — whichever is found first) listing the Tmux sessions on the target. Selecting an entry attaches to it in a new ivyTerm window; typing a new name creates that session. Requires `fzf`.
 

@@ -328,6 +328,10 @@ fn dispatch_command_result(
         TmuxCommand::ChangeSize(_, _) => {
             receive_event(&event_channel, TmuxEvent::SizeChanged)?;
         }
+        TmuxCommand::Keypress => {
+            // Lets the window measure the transport round trip time
+            receive_event(&event_channel, TmuxEvent::KeypressAck)?;
+        }
         TmuxCommand::ClearScrollback(term_id) => {
             receive_event(&event_channel, TmuxEvent::ScrollbackCleared(*term_id))?;
         }
@@ -734,7 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_command_block_produces_no_result() {
+    fn keypress_block_produces_only_the_rtt_ack() {
         let (mut state, events, cmds) = test_state();
 
         cmds.send_blocking(TmuxCommand::Keypress).unwrap();
@@ -743,6 +747,8 @@ mod tests {
             &[b"%begin 100 1 1" as &[u8], b"%end 100 1 1"],
         );
 
-        assert!(drain_events(&events).is_empty());
+        let events = drain_events(&events);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], TmuxEvent::KeypressAck));
     }
 }

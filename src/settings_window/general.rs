@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk4::{CheckButton, Entry, FontButton, Label};
-use libadwaita::{prelude::*, PreferencesGroup, PreferencesPage};
+use gtk4::{CheckButton, DropDown, Entry, FontButton, Label};
+use libadwaita::{glib, prelude::*, PreferencesGroup, PreferencesPage};
 
-use crate::config::GlobalConfig;
+use crate::config::{GlobalConfig, PredictiveEchoMode};
 
 use super::{create_color_button, create_setting_row};
 
@@ -132,6 +132,26 @@ fn create_terminal_prefs(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesGroup
         }
     ));
 
+    // Predictive echo (mosh-style local echo in Tmux terminals)
+    let predictive_echo = DropDown::from_strings(&["Off", "Auto", "Always"]);
+    predictive_echo.set_selected(match borrowed.terminal.predictive_echo {
+        PredictiveEchoMode::Off => 0,
+        PredictiveEchoMode::Auto => 1,
+        PredictiveEchoMode::Always => 2,
+    });
+    predictive_echo.connect_selected_notify(glib::clone!(
+        #[weak]
+        config,
+        move |dropdown| {
+            let mut borrowed = config.borrow_mut();
+            borrowed.terminal.predictive_echo = match dropdown.selected() {
+                0 => PredictiveEchoMode::Off,
+                2 => PredictiveEchoMode::Always,
+                _ => PredictiveEchoMode::Auto,
+            };
+        }
+    ));
+
     // Build the page itself
     let terminal_font_color = PreferencesGroup::builder()
         .title("Terminal font and colors")
@@ -143,6 +163,11 @@ fn create_terminal_prefs(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesGroup
     create_setting_row(&terminal_font_color, "Scrollback lines", scrollback);
     create_setting_row(&terminal_font_color, "Terminal bell", terminal_bell);
     create_setting_row(&terminal_font_color, "Split handle color", split_color);
+    create_setting_row(
+        &terminal_font_color,
+        "Predictive echo (Tmux)",
+        predictive_echo,
+    );
 
     terminal_font_color
 }

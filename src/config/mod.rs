@@ -5,7 +5,7 @@ use std::{
 
 use gtk4::{gdk::RGBA, pango::FontDescription};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-pub use terminal::{ColorScheme, TerminalConfig};
+pub use terminal::{ColorScheme, PredictiveEchoMode, TerminalConfig};
 use tmux::TmuxConfig;
 
 use crate::keyboard::Keybindings;

@@ -1,12 +1,20 @@
 mod imp;
+mod prediction;
 
 use glib::{subclass::types::ObjectSubclassIsExt, Object, Propagation};
 use gtk4::{
+    cairo, gdk,
     gdk::{ModifierType, BUTTON_PRIMARY},
-    gio, EventControllerKey, GestureClick, PropagationPhase, ScrolledWindow,
+    gio, pango, DrawingArea, EventControllerKey, GestureClick, Overlay, PropagationPhase,
+    ScrolledWindow,
 };
 use libadwaita::{glib, prelude::*};
-use vte4::{Regex, Terminal as Vte, TerminalExt, TerminalExtManual};
+use prediction::{
+    classify_commit, confirmed_graphemes, grapheme_offset, layout_cells, pop_grapheme,
+    CommitKind, PREDICTION_TIMEOUT,
+};
+use unicode_width::UnicodeWidthStr;
+use vte4::{Format, Regex, Terminal as Vte, TerminalExt, TerminalExtManual};
 
 use crate::{
     application::IvyApplication,
@@ -17,6 +25,13 @@ use crate::{
 };
 
 use super::{toplevel::TmuxTopLevel, IvyTmuxWindow};
+
+/// VTE's fixed inner border (see also TmuxTopLevel::get_cols_rows)
+const VTE_PADDING: f64 = 1.0;
+
+fn rgba_to_tuple(rgba: &gdk::RGBA) -> (f64, f64, f64) {
+    (rgba.red() as f64, rgba.green() as f64, rgba.blue() as f64)
+}
 
 glib::wrapper! {
     pub struct TmuxTerminal(ObjectSubclass<imp::TerminalPriv>)
@@ -50,8 +65,62 @@ impl TmuxTerminal {
 
         // Create self
         let terminal: Self = Object::builder().build();
-        terminal.set_child(Some(&scrolled));
+
+        // Predictions (mosh-style local echo) are drawn on an overlay above
+        // the terminal, leaving the VTE buffer untouched (Tmux stays the
+        // single source of truth for the screen content)
+        let prediction_area = DrawingArea::new();
+        prediction_area.set_can_target(false);
+        let overlay = Overlay::new();
+        overlay.set_child(Some(&scrolled));
+        overlay.add_overlay(&prediction_area);
+        terminal.set_child(Some(&overlay));
+
         terminal.imp().init_values(pane_id, &vte);
+        {
+            let imp = terminal.imp();
+            imp.prediction_area.replace(Some(prediction_area.clone()));
+            imp.predictive_mode.set(config.predictive_echo);
+            imp.prediction_fg.set(rgba_to_tuple(config.foreground.as_ref()));
+            imp.prediction_bg.set(rgba_to_tuple(config.background.as_ref()));
+        }
+
+        prediction_area.set_draw_func(glib::clone!(
+            #[weak]
+            terminal,
+            move |_, cr, _, _| {
+                terminal.draw_predictions(cr);
+            }
+        ));
+
+        // Reconcile predictions against the authoritative screen content.
+        // This must run from these signals: vte.feed() only queues bytes,
+        // the screen updates later in the main loop
+        vte.connect_contents_changed(glib::clone!(
+            #[weak]
+            terminal,
+            move |vte| {
+                terminal.reconcile_predictions(vte);
+            }
+        ));
+        vte.connect_cursor_moved(glib::clone!(
+            #[weak]
+            terminal,
+            move |vte| {
+                terminal.reconcile_predictions(vte);
+            }
+        ));
+
+        // The overlay draws at fixed pixels; repaint when the view scrolls
+        if let Some(adjustment) = vte.vadjustment() {
+            adjustment.connect_value_changed(glib::clone!(
+                #[weak]
+                prediction_area,
+                move |_| {
+                    prediction_area.queue_draw();
+                }
+            ));
+        }
 
         if window.initial_layout_finished() {
             terminal.imp().set_synced();
@@ -72,10 +141,15 @@ impl TmuxTerminal {
         // IME filtering, inline preedit display, caret location reporting) is
         // left to VTE itself. VTE emits the translated input bytes on the
         // `commit` signal even without a PTY, which we forward to Tmux.
+        // Predictive echo tracks the same bytes; the forwarded input is
+        // never modified
         vte.connect_commit(glib::clone!(
             #[weak]
             window,
-            move |_, text, _| {
+            #[weak]
+            terminal,
+            move |vte, text, _| {
+                terminal.predict_input(vte, &window, text);
                 window.tmux_send_input(pane_id, text);
             }
         ));
@@ -216,8 +290,9 @@ impl TmuxTerminal {
     }
 
     pub fn update_config(&self, config: &TerminalConfig) {
+        let imp = self.imp();
         let color_scheme = ColorScheme::new(config);
-        let vte = borrow_clone(&self.imp().vte);
+        let vte = borrow_clone(&imp.vte);
 
         vte.set_font(Some(config.font.as_ref()));
         vte.set_colors(
@@ -227,6 +302,11 @@ impl TmuxTerminal {
         );
         vte.set_scrollback_lines(config.scrollback_lines as i64);
         vte.set_audible_bell(config.terminal_bell);
+
+        imp.predictive_mode.set(config.predictive_echo);
+        imp.prediction_fg.set(rgba_to_tuple(config.foreground.as_ref()));
+        imp.prediction_bg.set(rgba_to_tuple(config.background.as_ref()));
+        self.queue_prediction_draw();
     }
 
     pub fn feed_output(&self, output: Vec<u8>, initial: bool) {
@@ -294,12 +374,223 @@ impl TmuxTerminal {
 
     pub fn set_font_scale(&self, scale: f64) {
         borrow_clone(&self.imp().vte).set_font_scale(scale);
+        // Cell dimensions changed; predictions are drawn in cell units
+        self.queue_prediction_draw();
     }
 
     pub fn clear_scrollback(&self) {
         let clear_scrollback = [b'\x1b', b'[', b'3', b'J'];
         let vte = borrow_clone(&self.imp().vte);
         vte.feed(&clear_scrollback);
+    }
+
+    /// Updates the predictive echo state for one `commit` chunk (the bytes
+    /// themselves are forwarded to Tmux unmodified by the caller)
+    fn predict_input(&self, vte: &Vte, window: &IvyTmuxWindow, text: &str) {
+        let imp = self.imp();
+
+        match classify_commit(text) {
+            CommitKind::Append => {
+                if !window.predictive_echo_active(imp.predictive_mode.get()) {
+                    return;
+                }
+
+                let generation = {
+                    let mut state = imp.prediction.borrow_mut();
+                    if state.text.is_empty() {
+                        state.origin = vte.cursor_position();
+                    }
+                    state.text.push_str(text);
+                    state.generation += 1;
+                    state.generation
+                };
+                self.queue_prediction_draw();
+                self.arm_prediction_timeout(generation);
+            }
+            CommitKind::Backspace => {
+                let popped = {
+                    let mut state = imp.prediction.borrow_mut();
+                    let popped = pop_grapheme(&mut state.text);
+                    if popped {
+                        state.generation += 1;
+                    }
+                    popped
+                };
+                if popped {
+                    self.queue_prediction_draw();
+                }
+            }
+            CommitKind::Control => {
+                // Control keys (Enter, arrows, Ctrl-*, pastes) have
+                // unpredictable screen effects
+                self.discard_predictions();
+            }
+        }
+    }
+
+    /// Matches pending predictions against the actual screen content.
+    /// Confirmed graphemes are removed (the real echo now covers them);
+    /// a mismatch discards everything
+    fn reconcile_predictions(&self, vte: &Vte) {
+        let imp = self.imp();
+        let mut state = imp.prediction.borrow_mut();
+        if state.text.is_empty() {
+            return;
+        }
+
+        let cols = vte.column_count() as i64;
+        if cols < 1 {
+            return;
+        }
+
+        // Read the authoritative screen text from the prediction origin
+        // through the rows the prediction spans. Passing origin.0 as
+        // start_col (instead of indexing row text) keeps cell/character
+        // positions aligned even with wide glyphs left of the origin
+        let (_, (_, row_span)) = layout_cells(&state.text, state.origin.0, cols);
+        let (screen, _) = vte.text_range_format(
+            Format::Text,
+            state.origin.1,
+            state.origin.0,
+            state.origin.1 + row_span,
+            cols - 1,
+        );
+        let screen = screen.map(|text| text.to_string()).unwrap_or_default();
+
+        let confirmed_count = confirmed_graphemes(&screen, &state.text);
+        if confirmed_count > 0 {
+            let offset = grapheme_offset(&state.text, confirmed_count);
+            let confirmed: String = state.text.drain(..offset).collect();
+            state.origin = prediction::advance_origin(state.origin, &confirmed, cols);
+            // The remote is echoing what we predicted; from now on (until
+            // the next discard) predictions may be displayed
+            state.display_unlocked = true;
+            state.generation += 1;
+
+            let generation = state.generation;
+            let pending = !state.text.is_empty();
+            drop(state);
+            self.queue_prediction_draw();
+            if pending {
+                self.arm_prediction_timeout(generation);
+            }
+        } else if vte.cursor_position() != state.origin {
+            // The screen changed somewhere else (echo landed elsewhere,
+            // full redraw, scroll): our prediction is wrong
+            state.discard();
+            drop(state);
+            self.queue_prediction_draw();
+        }
+    }
+
+    fn discard_predictions(&self) {
+        let imp = self.imp();
+        let had_state = {
+            let mut state = imp.prediction.borrow_mut();
+            let had_state = !state.text.is_empty() || state.display_unlocked;
+            state.discard();
+            had_state
+        };
+        if had_state {
+            self.queue_prediction_draw();
+        }
+    }
+
+    /// Discards the prediction if it is still unconfirmed after
+    /// PREDICTION_TIMEOUT (e.g. input that produces no echo at all)
+    fn arm_prediction_timeout(&self, generation: u64) {
+        glib::timeout_add_local_once(
+            PREDICTION_TIMEOUT,
+            glib::clone!(
+                #[weak(rename_to = terminal)]
+                self,
+                move || {
+                    let stale = {
+                        let state = terminal.imp().prediction.borrow();
+                        state.generation == generation && !state.text.is_empty()
+                    };
+                    if stale {
+                        terminal.discard_predictions();
+                    }
+                }
+            ),
+        );
+    }
+
+    fn queue_prediction_draw(&self) {
+        if let Some(area) = self.imp().prediction_area.borrow().as_ref() {
+            area.queue_draw();
+        }
+    }
+
+    fn draw_predictions(&self, cr: &cairo::Context) {
+        let imp = self.imp();
+        let state = imp.prediction.borrow();
+        // display_unlocked keeps input without any echo (password prompts)
+        // off the screen
+        if state.text.is_empty() || !state.display_unlocked {
+            return;
+        }
+
+        let vte = borrow_clone(&imp.vte);
+        let Some(adjustment) = vte.vadjustment() else {
+            return;
+        };
+        // While the user looks at the scrollback, the cursor (and therefore
+        // the prediction) is off-screen; don't paint over history
+        if adjustment.value() + adjustment.page_size() < adjustment.upper() - 0.5 {
+            return;
+        }
+
+        let char_width = vte.char_width() as f64;
+        let char_height = vte.char_height() as f64;
+        let cols = vte.column_count() as i64;
+        if char_width <= 0.0 || char_height <= 0.0 || cols < 1 {
+            return;
+        }
+
+        let (fg_r, fg_g, fg_b) = imp.prediction_fg.get();
+        let (bg_r, bg_g, bg_b) = imp.prediction_bg.get();
+        let base_y = (state.origin.1 as f64 - adjustment.value()) * char_height + VTE_PADDING;
+
+        // Underlined text, same font as the terminal
+        let layout = pangocairo::functions::create_layout(cr);
+        if let Some(font) = vte.font() {
+            let mut font = font.clone();
+            if font.size() > 0 {
+                font.set_size((font.size() as f64 * vte.font_scale()) as i32);
+            }
+            layout.set_font_description(Some(&font));
+        }
+        let attributes = pango::AttrList::new();
+        attributes.insert(pango::AttrInt::new_underline(pango::Underline::Single));
+        layout.set_attributes(Some(&attributes));
+
+        let (cells, caret) = layout_cells(&state.text, state.origin.0, cols);
+        for (grapheme, col, row_delta) in cells {
+            let x = col as f64 * char_width + VTE_PADDING;
+            let y = base_y + row_delta as f64 * char_height;
+            let cell_width = (grapheme.width().max(1)) as f64 * char_width;
+
+            // Fill the cell background first: VTE draws its block cursor in
+            // the foreground color at the origin cell, which would swallow
+            // a glyph drawn directly on top of it
+            cr.set_source_rgb(bg_r, bg_g, bg_b);
+            cr.rectangle(x, y, cell_width, char_height);
+            let _ = cr.fill();
+
+            cr.set_source_rgb(fg_r, fg_g, fg_b);
+            cr.move_to(x, y);
+            layout.set_text(grapheme);
+            pangocairo::functions::show_layout(cr, &layout);
+        }
+
+        // The caret sits at the end of the prediction
+        let caret_x = caret.0 as f64 * char_width + VTE_PADDING;
+        let caret_y = base_y + caret.1 as f64 * char_height;
+        cr.set_source_rgb(fg_r, fg_g, fg_b);
+        cr.rectangle(caret_x, caret_y, 2.0, char_height);
+        let _ = cr.fill();
     }
 }
 

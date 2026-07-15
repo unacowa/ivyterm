@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+# latsim - run a command with artificial latency added to its stdio.
+#
+# Usage: latsim <one-way-delay-ms> <command> [args...]
+#
+# Every chunk read from stdin is delivered to the command's stdin
+# <delay> ms later, and every chunk of the command's stdout is delivered
+# to stdout <delay> ms later, so a request/response round trip gains
+# 2 x <delay> ms of RTT. Ordering and throughput are preserved (chunks
+# are timestamped on arrival, not serialized behind each other's sleep).
+#
+# Made for testing ivyterm's predictive echo against a fast server:
+#
+#   ivyterm attach ./scripts/latsim 150 tmux -2 -C new-session -A -s lag
+#   ivyterm attach ./scripts/latsim 150 ssh host tmux -2 -C new-session -A -s lag
+#
+# Note: the command runs on pipes, which is fine for tmux/ssh but not for
+# et (it needs a terminal); emulate latency for et with tc netem instead.
+
+import os
+import queue
+import subprocess
+import sys
+import threading
+import time
+
+
+def pump(src_fd, dst_fd, delay):
+    chunks = queue.Queue()
+
+    def reader():
+        while True:
+            try:
+                data = os.read(src_fd, 65536)
+            except OSError:
+                data = b""
+            chunks.put((time.monotonic() + delay, data))
+            if not data:
+                return
+
+    def writer():
+        while True:
+            deliver_at, data = chunks.get()
+            remaining = deliver_at - time.monotonic()
+            if remaining > 0:
+                time.sleep(remaining)
+            if not data:
+                try:
+                    os.close(dst_fd)
+                except OSError:
+                    pass
+                return
+            try:
+                os.write(dst_fd, data)
+            except OSError:
+                return
+
+    threading.Thread(target=reader, daemon=True).start()
+    threading.Thread(target=writer, daemon=True).start()
+
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit("usage: latsim <one-way-delay-ms> <command> [args...]")
+    try:
+        delay = float(sys.argv[1]) / 1000.0
+    except ValueError:
+        sys.exit(f"latsim: not a delay in ms: {sys.argv[1]}")
+
+    child = subprocess.Popen(
+        sys.argv[2:], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    pump(sys.stdin.fileno(), child.stdin.fileno(), delay)
+    pump(child.stdout.fileno(), sys.stdout.fileno(), delay)
+    sys.exit(child.wait())
+
+
+if __name__ == "__main__":
+    main()

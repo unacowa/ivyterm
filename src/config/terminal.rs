@@ -3,6 +3,19 @@ use serde::{Deserialize, Serialize};
 
 use super::{IvyColor, IvyFont};
 
+/// When to display mosh-style predictive local echo in Tmux terminals
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PredictiveEchoMode {
+    /// Never predict
+    Off,
+    /// Predict when the measured transport RTT is high
+    #[default]
+    Auto,
+    /// Always predict
+    Always,
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 pub struct TerminalConfig {
     #[serde(default = "default_font")]
@@ -21,6 +34,8 @@ pub struct TerminalConfig {
     pub split_handle_color: IvyColor,
     #[serde(default)]
     pub terminal_bell: bool,
+    #[serde(default)]
+    pub predictive_echo: PredictiveEchoMode,
 }
 
 impl Default for TerminalConfig {
@@ -34,6 +49,7 @@ impl Default for TerminalConfig {
             bright_colors: default_bright_colors(),
             split_handle_color: default_split_handle_color(),
             terminal_bell: false,
+            predictive_echo: PredictiveEchoMode::default(),
         }
     }
 }
