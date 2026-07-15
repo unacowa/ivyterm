@@ -1,7 +1,12 @@
 use std::cell::{Cell, RefCell};
 
+use gtk4::DrawingArea;
 use libadwaita::{glib, prelude::*, subclass::prelude::*};
 use vte4::Terminal as Vte;
+
+use crate::config::PredictiveEchoMode;
+
+use super::prediction::PredictionState;
 
 // Object holding the state
 #[derive(Default)]
@@ -15,6 +20,14 @@ pub struct TerminalPriv {
     /// Escape sequence split across %output chunks, held back until the
     /// rest arrives (see filter_mouse_tracking)
     pub pending_escape: RefCell<Vec<u8>>,
+    /// Predictive echo state (mosh-style local echo)
+    pub prediction: RefCell<PredictionState>,
+    /// Overlay the predictions are drawn on
+    pub prediction_area: RefCell<Option<DrawingArea>>,
+    pub predictive_mode: Cell<PredictiveEchoMode>,
+    /// Foreground/background colors for drawing predictions (from config)
+    pub prediction_fg: Cell<(f64, f64, f64)>,
+    pub prediction_bg: Cell<(f64, f64, f64)>,
 }
 
 // The central trait for subclassing a GObject
@@ -29,6 +42,7 @@ impl ObjectSubclass for TerminalPriv {
 impl ObjectImpl for TerminalPriv {
     fn dispose(&self) {
         self.vte.take();
+        self.prediction_area.take();
     }
 }
 
