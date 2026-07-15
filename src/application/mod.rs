@@ -9,11 +9,10 @@ use libadwaita::{gio, glib, prelude::*, PreferencesWindow};
 use log::debug;
 
 use crate::helpers::borrow_clone;
+use crate::icon::BASE_APP_ID;
 use crate::normal_widgets::IvyNormalWindow;
 use crate::settings_window::spawn_preferences_window;
 use crate::tmux_widgets::IvyTmuxWindow;
-
-const APPLICATION_ID: &str = "com.tomiyou.ivyTerm";
 
 static BASE_CSS: &str = include_str!("style.css");
 
@@ -26,8 +25,41 @@ glib::wrapper! {
 impl IvyApplication {
     pub fn new() -> Self {
         let app: IvyApplication = Object::builder().build();
-        app.set_application_id(Some(APPLICATION_ID));
+        app.set_application_id(Some(BASE_APP_ID));
         app
+    }
+
+    /// Stores the composed badge icon name (from --badge-*); windows point
+    /// at it via set_icon_name. None means the base application icon.
+    pub fn set_badge_icon(&self, name: Option<String>) {
+        self.imp().badge_icon.replace(name);
+    }
+
+    /// Icon name new windows should use: the badge if one was requested,
+    /// otherwise the base application icon
+    pub fn window_icon_name(&self) -> String {
+        self.imp()
+            .badge_icon
+            .borrow()
+            .clone()
+            .unwrap_or_else(|| BASE_APP_ID.to_string())
+    }
+
+    /// Sets the default window icon. On a compositor supporting
+    /// xdg-toplevel-icon (KWin >= Plasma 6.3) this drives the actual window
+    /// icon; elsewhere it is harmlessly ignored. Adding the repo `data` dir
+    /// to the search path shows the base icon when running uninstalled.
+    pub fn init_icon(&self) {
+        if let Some(display) = Display::default() {
+            let theme = gtk4::IconTheme::for_display(&display);
+            if std::path::Path::new("data")
+                .join(format!("{}.svg", BASE_APP_ID))
+                .exists()
+            {
+                theme.add_search_path("data");
+            }
+        }
+        gtk4::Window::set_default_icon_name(&self.window_icon_name());
     }
 
     pub fn init_css_provider(&self) {
