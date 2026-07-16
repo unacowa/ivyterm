@@ -2,6 +2,80 @@
     padding-right: 7px;
 }
 
+/* Shrink the tab/header row hard to maximize the terminal drawing area
+   (~51px default -> ~32px). The row's height is set by its tallest element, so
+   every part that shares the row must shrink: the tabs, the tab titles, the
+   Settings button, and — the biggest culprit — the min/max/close window
+   controls. Height is content-driven (no hard floor), so it trades off against
+   how small the glyphs get; these values are about as small as stays legible.
+   To go smaller/larger, adjust the font-size values and the window-control
+   `-gtk-icon-size` below in tandem. */
+
+/* Tab strip containers: drop libadwaita's default minimums
+   (`tabbar tabbox { min-height: 34px }`, etc.) and all their padding/margin. */
+tabbar,
+tabbar .box,
+tabbar scrolledwindow,
+tabbar tabbox,
+tabbar tab,
+dnd tab {
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+/* Tab title label (AdwFadingLabel) — not a button label, so it needs its own
+   rule to stop its line-height from setting the tab's height floor. */
+tabbar tab .tab-title,
+dnd tab .tab-title {
+    font-size: 0.72em;
+}
+
+/* Buttons in the tab strip (Settings, tab close/indicator). */
+tabbar button {
+    min-height: 0;
+    min-width: 0;
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+tabbar button label {
+    font-size: 0.72em;
+}
+
+tabbar button > image {
+    min-height: 8px;
+    min-width: 8px;
+    padding: 0;
+    -gtk-icon-size: 11px;
+}
+
+/* Window-control buttons (min/max/close). NOTE: these are NOT descendants of
+   the .header-margin WindowHandle, so they must be targeted unscoped. GTK's
+   default `windowcontrols button > image { min-height: 30px }` is otherwise the
+   single biggest thing keeping the row tall. */
+windowcontrols,
+windowcontrols > * {
+    min-height: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+windowcontrols button {
+    min-height: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+windowcontrols button > image {
+    min-height: 6px;
+    min-width: 6px;
+    padding: 0;
+    -gtk-icon-size: 8px;
+}
+
 .separator_container {
     background-color: #000000;
 }
