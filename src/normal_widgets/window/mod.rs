@@ -22,13 +22,13 @@ glib::wrapper! {
 }
 
 impl IvyNormalWindow {
-    pub fn new(app: &IvyApplication) -> Self {
+    pub fn new(app: &IvyApplication, icon_name: &str) -> Self {
         let window: Self = Object::builder().build();
         window.set_application(Some(app));
         window.set_title(Some(APPLICATION_TITLE));
-        // Point the window at the composed badge icon (or the base icon);
+        // Point the window at its per-launch badge icon (or the base icon);
         // effective on compositors supporting xdg-toplevel-icon
-        window.set_icon_name(Some(&app.window_icon_name()));
+        window.set_icon_name(Some(icon_name));
         window.set_default_width(INITIAL_WIDTH);
         window.set_default_height(INITIAL_HEIGHT);
 

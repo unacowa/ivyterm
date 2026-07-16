@@ -81,14 +81,7 @@ fn main() -> glib::ExitCode {
 
     env_logger::init();
 
-    // Compose the badge icon (if any) from this process's own arguments and
-    // hand its name to the application; windows point at it via
-    // set_icon_name (xdg-toplevel-icon)
-    let parsed = parse_args(&args);
-    let badge_icon = install_badge(parsed.badge_color.as_deref(), parsed.badge_text.as_deref());
-
     let application = IvyApplication::new();
-    application.set_badge_icon(badge_icon);
     application.set_flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE);
 
     // Initialize IvyApplication
@@ -105,9 +98,15 @@ fn main() -> glib::ExitCode {
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
 
-        // The badge options were consumed when the application id was
-        // chosen; act on whatever follows them
-        let rest = parse_args(&args).rest;
+        // Parse and compose the badge per invocation, not once at startup:
+        // with a single application instance, a later `ivyterm --badge-* ...`
+        // is forwarded here, and its window must get its own icon
+        let parsed = parse_args(&args);
+        let badge_icon =
+            install_badge(parsed.badge_color.as_deref(), parsed.badge_text.as_deref());
+        let icon = badge_icon.as_deref();
+
+        let rest = parsed.rest;
         match rest.first().map(|arg| arg.as_str()) {
             Some("attach") => {
                 let attach_argv = &rest[1..];
@@ -116,14 +115,14 @@ fn main() -> glib::ExitCode {
                     eprintln!("  ivyterm attach tmux -2 -C new-session -A -s main");
                     return 1;
                 }
-                app.new_tmux_window(attach_argv);
+                app.new_tmux_window(attach_argv, icon);
             }
             Some(arg) => {
                 eprintln!("Error: unknown argument '{}'", arg);
                 return 1;
             }
             None => {
-                app.new_normal_window();
+                app.new_normal_window(icon);
             }
         }
 

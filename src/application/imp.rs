@@ -13,8 +13,6 @@ pub struct IvyApplicationPriv {
     pub css_provider: RefCell<Option<CssProvider>>,
     pub config: RefCell<GlobalConfig>,
     pub keybindings: RefCell<Vec<Keybinding>>,
-    /// Composed badge icon name from --badge-*, or None for the base icon
-    pub badge_icon: RefCell<Option<String>>,
 }
 
 // The central trait for subclassing a GObject

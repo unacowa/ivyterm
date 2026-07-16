@@ -29,22 +29,6 @@ impl IvyApplication {
         app
     }
 
-    /// Stores the composed badge icon name (from --badge-*); windows point
-    /// at it via set_icon_name. None means the base application icon.
-    pub fn set_badge_icon(&self, name: Option<String>) {
-        self.imp().badge_icon.replace(name);
-    }
-
-    /// Icon name new windows should use: the badge if one was requested,
-    /// otherwise the base application icon
-    pub fn window_icon_name(&self) -> String {
-        self.imp()
-            .badge_icon
-            .borrow()
-            .clone()
-            .unwrap_or_else(|| BASE_APP_ID.to_string())
-    }
-
     /// Sets the default window icon. On a compositor supporting
     /// xdg-toplevel-icon (KWin >= Plasma 6.3) this drives the actual window
     /// icon; elsewhere it is harmlessly ignored. Adding the repo `data` dir
@@ -59,7 +43,7 @@ impl IvyApplication {
                 theme.add_search_path("data");
             }
         }
-        gtk4::Window::set_default_icon_name(&self.window_icon_name());
+        gtk4::Window::set_default_icon_name(BASE_APP_ID);
     }
 
     pub fn init_css_provider(&self) {
@@ -87,13 +71,16 @@ impl IvyApplication {
         keybindings.append(&mut parsed_keybindings)
     }
 
-    pub fn new_normal_window(&self) {
-        let window = IvyNormalWindow::new(self);
+    /// `icon_name` is the per-invocation badge icon (None = base icon), so
+    /// windows opened by different launches keep their own icon even though
+    /// they share one application instance
+    pub fn new_normal_window(&self, icon_name: Option<&str>) {
+        let window = IvyNormalWindow::new(self, icon_name.unwrap_or(BASE_APP_ID));
         window.present();
     }
 
-    pub fn new_tmux_window(&self, attach_argv: &[String]) {
-        let window = IvyTmuxWindow::new(self, attach_argv);
+    pub fn new_tmux_window(&self, attach_argv: &[String], icon_name: Option<&str>) {
+        let window = IvyTmuxWindow::new(self, attach_argv, icon_name.unwrap_or(BASE_APP_ID));
         window.present();
     }
 
