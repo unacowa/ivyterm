@@ -4,6 +4,26 @@ use std::{
 };
 
 use const_format::concatcp;
+use gtk4::prelude::*;
+
+/// Applies a composed badge texture to a window's Wayland toplevel via
+/// gdk_toplevel_set_icon_list (per-window, pixel-based — bypasses the icon
+/// theme/name lookup, which a running compositor caches unreliably). The
+/// toplevel surface only exists once the window is realized, so this defers
+/// to the realize signal. None leaves the window on the base application icon.
+pub fn apply_window_icon(window: &impl IsA<gtk4::Window>, texture: Option<gtk4::gdk::Texture>) {
+    let Some(texture) = texture else {
+        return;
+    };
+    let window: gtk4::Window = window.clone().upcast();
+    window.connect_realize(move |window| {
+        if let Some(surface) = window.surface() {
+            if let Ok(toplevel) = surface.downcast::<gtk4::gdk::Toplevel>() {
+                toplevel.set_icon_list(&[texture.clone()]);
+            }
+        }
+    });
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum IvyError {

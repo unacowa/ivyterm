@@ -1,20 +1,20 @@
 //! Per-launch composed window icons.
 //!
-//! GTK4 exposes the window icon only by name, but on a compositor that
-//! supports the `xdg-toplevel-icon-v1` protocol (KWin >= Plasma 6.3)
-//! `gtk_window_set_icon_name` forwards that name and the compositor resolves
-//! it against the icon theme. So a custom "badge" icon (a background color
-//! identifying the connection target plus a short text identifying the
-//! session) is realized by composing an SVG into the user's icon theme and
-//! pointing the window at it by name. No `.desktop` file or per-launch
-//! application id is needed; on compositors without the protocol the call is
-//! simply ignored and the base application icon shows instead.
+//! A custom "badge" icon (the ivyTerm logo with its terminal background
+//! recolored to identify the connection target, and a short session label)
+//! is composed as an SVG, rasterized with resvg and handed to the window as
+//! a texture via `gdk_toplevel_set_icon_list`. On a compositor supporting
+//! the `xdg-toplevel-icon` protocol (KWin >= Plasma 6.3) the pixels are sent
+//! per window directly. This deliberately avoids the icon-theme/name route:
+//! a running compositor caches icon-name lookups, so dynamically created
+//! named icons are unreliable. Sending pixels also needs no on-disk file.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::sync::Arc;
 
-use gtk4::gdk::RGBA;
+use gtk4::gdk::{self, RGBA};
+use gtk4::glib;
+use gtk4::prelude::*;
+use resvg::{tiny_skia, usvg};
 
 /// The application id, which also names the base (unbadged) icon
 pub const BASE_APP_ID: &str = "com.tomiyou.ivyTerm";
@@ -22,11 +22,13 @@ pub const BASE_APP_ID: &str = "com.tomiyou.ivyTerm";
 /// Longest badge text that stays legible in the icon
 const MAX_BADGE_CHARS: usize = 3;
 
-/// Composes the badge icon from the optional CLI values, writes it into the
-/// user's icon theme and returns the icon name to pass to
-/// `Window::set_icon_name`. Returns None (use the base icon) when neither
-/// argument was given or the icon could not be written.
-pub fn install_badge(color: Option<&str>, text: Option<&str>) -> Option<String> {
+/// Rendered icon resolution (the SVG viewBox is 128)
+const RENDER_SIZE: u32 = 256;
+
+/// Composes the badge from the optional CLI values and rasterizes it to a
+/// texture. Returns None (use the base icon) when neither argument was given
+/// or rendering failed.
+pub fn render_badge_texture(color: Option<&str>, text: Option<&str>) -> Option<gdk::Texture> {
     if color.is_none() && text.is_none() {
         return None;
     }
@@ -46,16 +48,45 @@ pub fn install_badge(color: Option<&str>, text: Option<&str>) -> Option<String> 
     // text is drawn on it in a contrasting color so it stays legible
     let bg_hex = rgba_to_hex(&rgba);
     let text_hex = contrasting_text_color(&rgba);
-    let name = badge_icon_name(&bg_hex, &text);
     let svg = badge_svg(&bg_hex, text_hex, &text);
 
-    match write_icon(&name, &svg) {
-        Ok(()) => Some(name),
+    render_svg_to_texture(&svg)
+}
+
+/// Rasterizes an SVG string to a GDK texture with resvg (pure Rust, no
+/// system rasterizer dependency)
+fn render_svg_to_texture(svg: &str) -> Option<gdk::Texture> {
+    let mut fontdb = usvg::fontdb::Database::new();
+    fontdb.load_system_fonts();
+    let mut options = usvg::Options::default();
+    options.fontdb = Arc::new(fontdb);
+
+    let tree = match usvg::Tree::from_str(svg, &options) {
+        Ok(tree) => tree,
         Err(err) => {
-            eprintln!("ivyterm: could not install badge icon: {}", err);
-            None
+            eprintln!("ivyterm: could not parse badge SVG: {}", err);
+            return None;
         }
-    }
+    };
+
+    let mut pixmap = tiny_skia::Pixmap::new(RENDER_SIZE, RENDER_SIZE)?;
+    let scale = RENDER_SIZE as f32 / 128.0;
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
+
+    // tiny_skia is RGBA8 premultiplied, matching R8g8b8a8Premultiplied
+    let bytes = glib::Bytes::from(pixmap.data());
+    let texture = gdk::MemoryTexture::new(
+        RENDER_SIZE as i32,
+        RENDER_SIZE as i32,
+        gdk::MemoryFormat::R8g8b8a8Premultiplied,
+        &bytes,
+        (RENDER_SIZE * 4) as usize,
+    );
+    Some(texture.upcast())
 }
 
 fn default_badge_color() -> RGBA {
@@ -89,16 +120,6 @@ fn contrasting_text_color(rgba: &RGBA) -> &'static str {
     } else {
         "#ffffff"
     }
-}
-
-/// Deterministic icon name for a badge, so the SVG is reused across launches
-/// of the same color+text
-fn badge_icon_name(bg_hex: &str, text: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    bg_hex.hash(&mut hasher);
-    "\0".hash(&mut hasher);
-    text.hash(&mut hasher);
-    format!("{}.badge_{:08x}", BASE_APP_ID, hasher.finish() as u32)
 }
 
 fn escape_xml(text: &str) -> String {
@@ -177,25 +198,6 @@ pub fn badge_svg(color_hex: &str, text_color_hex: &str, text: &str) -> String {
     )
 }
 
-fn xdg_data_home() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("XDG_DATA_HOME") {
-        if !dir.is_empty() {
-            return Some(PathBuf::from(dir));
-        }
-    }
-    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share"))
-}
-
-/// Writes the SVG into the scalable hicolor apps dir (idempotent) so the
-/// compositor can resolve the icon name
-fn write_icon(name: &str, svg: &str) -> std::io::Result<()> {
-    let data_home = xdg_data_home()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no XDG data dir"))?;
-    let icon_dir = data_home.join("icons/hicolor/scalable/apps");
-    std::fs::create_dir_all(&icon_dir)?;
-    std::fs::write(icon_dir.join(format!("{}.svg", name)), svg)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,15 +207,6 @@ mod tests {
         assert_eq!(trim_badge_text("ML1"), "ML1");
         assert_eq!(trim_badge_text("LONGER"), "LON");
         assert_eq!(trim_badge_text(""), "");
-    }
-
-    #[test]
-    fn icon_name_is_deterministic_and_distinct() {
-        let a = badge_icon_name("#c33", "ML1");
-        assert_eq!(a, badge_icon_name("#c33", "ML1"));
-        assert_ne!(badge_icon_name("#c33", "ML1"), badge_icon_name("#c33", "ML2"));
-        assert_ne!(badge_icon_name("#c33", "ML1"), badge_icon_name("#d44", "ML1"));
-        assert!(a.starts_with("com.tomiyou.ivyTerm.badge_"));
     }
 
     #[test]

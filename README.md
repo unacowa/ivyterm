@@ -80,14 +80,13 @@ names); `--badge-text` is truncated to 3 characters and drawn in a
 contrasting color. Both are optional and must precede any `attach`; with only
 a color the original prompt glyphs are kept.
 
-ivyTerm composes the icon as an SVG under
-`~/.local/share/icons/hicolor/scalable/apps/` (named deterministically from
-the badge, so it is reused on later launches) and points the window at it by
-name. On a compositor supporting the `xdg-toplevel-icon` protocol
-(**KWin from Plasma 6.3**, recent Mutter) GTK forwards that name and the icon
-appears per-window, immediately, with no `.desktop` file or app-id juggling.
-On compositors without the protocol the request is ignored and the base
-application icon is shown, so nothing breaks.
+ivyTerm composes the icon as an SVG, rasterizes it (with resvg) and sends the
+pixels to the window's toplevel via `gdk_toplevel_set_icon_list`. On a
+compositor supporting the `xdg-toplevel-icon` protocol (**KWin from Plasma
+6.3**, recent Mutter) the icon appears per window, immediately — no file is
+written and no icon-theme name lookup is involved (a running compositor
+caches those unreliably). On compositors without the protocol the request is
+ignored and the base application icon is shown, so nothing breaks.
 
 ### ivysel session picker
 `scripts/ivysel` is a small fzf-based picker: it opens a scratch terminal window (alacritty, kitty, foot, konsole or xterm — whichever is found first) listing the Tmux sessions on the target. Selecting an entry attaches to it in a new ivyTerm window; typing a new name creates that session. Requires `fzf`.

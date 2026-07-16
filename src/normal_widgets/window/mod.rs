@@ -3,14 +3,14 @@ mod imp;
 use std::sync::atomic::Ordering;
 
 use glib::{subclass::types::ObjectSubclassIsExt, Object, Propagation};
-use gtk4::{Align, Box, Button, Orientation, PackType, WindowControls, WindowHandle};
+use gtk4::{gdk, Align, Box, Button, Orientation, PackType, WindowControls, WindowHandle};
 use libadwaita::{gio, glib, prelude::*, TabBar, TabView};
 use log::debug;
 
 use crate::{
     application::IvyApplication,
     config::{TerminalConfig, APPLICATION_TITLE, INITIAL_HEIGHT, INITIAL_WIDTH},
-    helpers::{adjusted_font_scale, borrow_clone},
+    helpers::{adjusted_font_scale, apply_window_icon, borrow_clone},
 };
 
 use super::{terminal::Terminal, toplevel::TopLevel};
@@ -22,13 +22,13 @@ glib::wrapper! {
 }
 
 impl IvyNormalWindow {
-    pub fn new(app: &IvyApplication, icon_name: &str) -> Self {
+    pub fn new(app: &IvyApplication, icon: Option<&gdk::Texture>) -> Self {
         let window: Self = Object::builder().build();
         window.set_application(Some(app));
         window.set_title(Some(APPLICATION_TITLE));
-        // Point the window at its per-launch badge icon (or the base icon);
-        // effective on compositors supporting xdg-toplevel-icon
-        window.set_icon_name(Some(icon_name));
+        // Apply the per-launch badge icon (pixels sent via xdg-toplevel-icon
+        // once the window is realized); None keeps the base application icon
+        apply_window_icon(&window, icon.cloned());
         window.set_default_width(INITIAL_WIDTH);
         window.set_default_height(INITIAL_HEIGHT);
 

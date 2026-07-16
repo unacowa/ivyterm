@@ -1,5 +1,5 @@
 use application::IvyApplication;
-use icon::install_badge;
+use icon::render_badge_texture;
 use libadwaita::{gio, glib};
 use libadwaita::prelude::*;
 
@@ -98,13 +98,11 @@ fn main() -> glib::ExitCode {
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
 
-        // Parse and compose the badge per invocation, not once at startup:
-        // with a single application instance, a later `ivyterm --badge-* ...`
-        // is forwarded here, and its window must get its own icon
+        // Compose the badge per invocation, not once at startup: with a
+        // single application instance, a later `ivyterm --badge-* ...` is
+        // forwarded here, and its window must get its own icon
         let parsed = parse_args(&args);
-        let badge_icon =
-            install_badge(parsed.badge_color.as_deref(), parsed.badge_text.as_deref());
-        let icon = badge_icon.as_deref();
+        let icon = render_badge_texture(parsed.badge_color.as_deref(), parsed.badge_text.as_deref());
 
         let rest = parsed.rest;
         match rest.first().map(|arg| arg.as_str()) {
@@ -115,14 +113,14 @@ fn main() -> glib::ExitCode {
                     eprintln!("  ivyterm attach tmux -2 -C new-session -A -s main");
                     return 1;
                 }
-                app.new_tmux_window(attach_argv, icon);
+                app.new_tmux_window(attach_argv, icon.as_ref());
             }
             Some(arg) => {
                 eprintln!("Error: unknown argument '{}'", arg);
                 return 1;
             }
             None => {
-                app.new_normal_window(icon);
+                app.new_normal_window(icon.as_ref());
             }
         }
 

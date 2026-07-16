@@ -71,16 +71,16 @@ impl IvyApplication {
         keybindings.append(&mut parsed_keybindings)
     }
 
-    /// `icon_name` is the per-invocation badge icon (None = base icon), so
+    /// `icon` is the per-invocation badge texture (None = base icon), so
     /// windows opened by different launches keep their own icon even though
     /// they share one application instance
-    pub fn new_normal_window(&self, icon_name: Option<&str>) {
-        let window = IvyNormalWindow::new(self, icon_name.unwrap_or(BASE_APP_ID));
+    pub fn new_normal_window(&self, icon: Option<&gtk4::gdk::Texture>) {
+        let window = IvyNormalWindow::new(self, icon);
         window.present();
     }
 
-    pub fn new_tmux_window(&self, attach_argv: &[String], icon_name: Option<&str>) {
-        let window = IvyTmuxWindow::new(self, attach_argv, icon_name.unwrap_or(BASE_APP_ID));
+    pub fn new_tmux_window(&self, attach_argv: &[String], icon: Option<&gtk4::gdk::Texture>) {
+        let window = IvyTmuxWindow::new(self, attach_argv, icon);
         window.present();
     }
 
