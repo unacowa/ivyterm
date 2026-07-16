@@ -2,25 +2,31 @@
 # ivysel - pick a tmux session with fzf and open it in ivyterm
 #
 # Usage: ivysel [-s <host> | -e <host>] [-c <command>]
-#   -s <host>     SSH host used to list sessions and to attach
-#   -e <host>     Like -s, but attach through Eternal Terminal (et);
-#                 sessions are still listed over ssh
-#   -c <command>  Command used to launch tmux on the target
-#                 (e.g. "distrobox enter arch -- tmux")
+#               [--badge-color <color>] [--badge-text <text>]
+#   -s <host>          SSH host used to list sessions and to attach
+#   -e <host>          Like -s, but attach through Eternal Terminal (et);
+#                      sessions are still listed over ssh
+#   -c <command>       Command used to launch tmux on the target
+#                      (e.g. "distrobox enter arch -- tmux")
+#   --badge-color <c>  Window icon color (default: derived from the host)
+#   --badge-text <t>   Window icon label (default: the session name)
 #
 # Opens a small terminal window with an fzf list of tmux sessions on the
 # target. Selecting an entry attaches to it; typing a new name creates a
-# new session.
+# new session. The ivyterm window gets a per-host colored icon labelled
+# with the session name.
 set -eu
 
 usage() {
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
 host=""
 host_opt="-s"
 command=""
+badge_color=""
+badge_text=""
 pick=0
 
 while [ $# -gt 0 ]; do
@@ -28,12 +34,24 @@ while [ $# -gt 0 ]; do
         -s|--ssh) shift; host="${1:?-s requires a value}"; host_opt="-s" ;;
         -e|--et) shift; host="${1:?-e requires a value}"; host_opt="-e" ;;
         -c|--command) shift; command="${1:?-c requires a value}" ;;
+        --badge-color) shift; badge_color="${1:?--badge-color requires a value}" ;;
+        --badge-text) shift; badge_text="${1:?--badge-text requires a value}" ;;
         --pick) pick=1 ;;
         -h|--help) usage ;;
         *) echo "ivysel: unknown argument: $1" >&2; usage 1 ;;
     esac
     shift
 done
+
+# A deterministic, legible color for a host name, picked from a fixed
+# palette so the same host always gets the same distinguishable color
+badge_color_for_host() {
+    _host="$1"
+    set -- '#c0392b' '#2980b9' '#27ae60' '#8e44ad' '#d35400' '#16a085' '#8e6f3e' '#7d3c98'
+    _idx=$(( $(printf '%s' "$_host" | cksum | cut -d' ' -f1) % $# ))
+    shift "$_idx"
+    printf '%s\n' "$1"
+}
 
 # Outer invocation: open a small terminal that runs this script again in
 # picker mode
@@ -45,20 +63,20 @@ if [ "$pick" -eq 0 ]; then
             alacritty)
                 exec alacritty -T "ivysel" \
                     -o window.dimensions.columns=70 -o window.dimensions.lines=20 \
-                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
+                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ${badge_color:+--badge-color "$badge_color"} ${badge_text:+--badge-text "$badge_text"} ;;
             kitty)
                 exec kitty --title "ivysel" -o remember_window_size=no \
                     -o initial_window_width=70c -o initial_window_height=20c \
-                    "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
+                    "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ${badge_color:+--badge-color "$badge_color"} ${badge_text:+--badge-text "$badge_text"} ;;
             foot)
                 exec foot -T "ivysel" -W 70x20 \
-                    "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
+                    "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ${badge_color:+--badge-color "$badge_color"} ${badge_text:+--badge-text "$badge_text"} ;;
             konsole)
                 exec konsole -p tabtitle=ivysel \
-                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
+                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ${badge_color:+--badge-color "$badge_color"} ${badge_text:+--badge-text "$badge_text"} ;;
             xterm)
                 exec xterm -T "ivysel" -geometry 70x20 \
-                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ;;
+                    -e "$self" --pick ${host:+$host_opt "$host"} ${command:+-c "$command"} ${badge_color:+--badge-color "$badge_color"} ${badge_text:+--badge-text "$badge_text"} ;;
         esac
     done
     echo "ivysel: no terminal emulator found" >&2
@@ -94,6 +112,23 @@ selection=$(printf '%s\n' "$result" | sed -n 2p)
 session="${selection:-$query}"
 [ -z "$session" ] && exit 0
 
+# Window icon badge: session name as the label and a per-host color, unless
+# either was given explicitly. Built as positional args so a session name
+# with spaces survives.
+eff_text="${badge_text:-$session}"
+if [ -n "$badge_color" ]; then
+    eff_color="$badge_color"
+elif [ -n "$host" ]; then
+    eff_color=$(badge_color_for_host "$host")
+else
+    eff_color=""
+fi
+set --
+if [ -n "$eff_color" ]; then
+    set -- --badge-color "$eff_color"
+fi
+set -- "$@" --badge-text "$eff_text"
+
 # Detach from this terminal so it can close while ivyterm lives on.
 # 'ivyterm attach' executes its arguments as-is; $command is intentionally
 # unquoted so it splits into words. Over ssh/et the remote shell re-splits
@@ -101,12 +136,12 @@ session="${selection:-$query}"
 # et runs the command through a remote pty, so use -CC to make Tmux turn
 # off terminal echo
 if [ -n "$host" ] && [ "$host_opt" = "-e" ]; then
-    setsid -f ivyterm attach et "$host" \
+    setsid -f ivyterm "$@" attach et "$host" \
         -c "$tmux_cmd -2 -CC new-session -A -s '$session'" >/dev/null 2>&1
 elif [ -n "$host" ]; then
-    setsid -f ivyterm attach ssh "$host" ${command:-tmux} \
+    setsid -f ivyterm "$@" attach ssh "$host" ${command:-tmux} \
         -2 -C new-session -A -s "'$session'" >/dev/null 2>&1
 else
-    setsid -f ivyterm attach ${command:-tmux} \
+    setsid -f ivyterm "$@" attach ${command:-tmux} \
         -2 -C new-session -A -s "$session" >/dev/null 2>&1
 fi

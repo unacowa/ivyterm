@@ -65,6 +65,29 @@ Safety and limitations:
 * While composing text with an IME, the preedit string is drawn by VTE at
   the position where the prediction started, not at its end
 
+### Custom window icon
+To tell windows apart at a glance, ivyTerm can compose a per-launch icon from
+the ivyTerm logo: `--badge-color` recolors the logo's terminal background
+(default black — e.g. one color per host), and `--badge-text` shows a short
+label in the terminal screen in place of the prompt (e.g. the session):
+
+```sh
+ivyterm --badge-color '#c33' --badge-text ML1 attach ssh ml001 tmux -2 -C new-session -A -s ml1
+```
+
+`--badge-color` accepts anything `GdkRGBA` parses (`#rgb`, `#rrggbb`, CSS
+names); `--badge-text` is truncated to 3 characters and drawn in a
+contrasting color. Both are optional and must precede any `attach`; with only
+a color the original prompt glyphs are kept.
+
+ivyTerm composes the icon as an SVG, rasterizes it (with resvg) and sends the
+pixels to the window's toplevel via `gdk_toplevel_set_icon_list`. On a
+compositor supporting the `xdg-toplevel-icon` protocol (**KWin from Plasma
+6.3**, recent Mutter) the icon appears per window, immediately — no file is
+written and no icon-theme name lookup is involved (a running compositor
+caches those unreliably). On compositors without the protocol the request is
+ignored and the base application icon is shown, so nothing breaks.
+
 ### ivysel session picker
 `scripts/ivysel` is a small fzf-based picker: it opens a scratch terminal window (alacritty, kitty, foot, konsole or xterm — whichever is found first) listing the Tmux sessions on the target. Selecting an entry attaches to it in a new ivyTerm window; typing a new name creates that session. Requires `fzf`.
 

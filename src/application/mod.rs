@@ -9,11 +9,10 @@ use libadwaita::{gio, glib, prelude::*, PreferencesWindow};
 use log::debug;
 
 use crate::helpers::borrow_clone;
+use crate::icon::BASE_APP_ID;
 use crate::normal_widgets::IvyNormalWindow;
 use crate::settings_window::spawn_preferences_window;
 use crate::tmux_widgets::IvyTmuxWindow;
-
-const APPLICATION_ID: &str = "com.tomiyou.ivyTerm";
 
 static BASE_CSS: &str = include_str!("style.css");
 
@@ -26,8 +25,25 @@ glib::wrapper! {
 impl IvyApplication {
     pub fn new() -> Self {
         let app: IvyApplication = Object::builder().build();
-        app.set_application_id(Some(APPLICATION_ID));
+        app.set_application_id(Some(BASE_APP_ID));
         app
+    }
+
+    /// Sets the default window icon. On a compositor supporting
+    /// xdg-toplevel-icon (KWin >= Plasma 6.3) this drives the actual window
+    /// icon; elsewhere it is harmlessly ignored. Adding the repo `data` dir
+    /// to the search path shows the base icon when running uninstalled.
+    pub fn init_icon(&self) {
+        if let Some(display) = Display::default() {
+            let theme = gtk4::IconTheme::for_display(&display);
+            if std::path::Path::new("data")
+                .join(format!("{}.svg", BASE_APP_ID))
+                .exists()
+            {
+                theme.add_search_path("data");
+            }
+        }
+        gtk4::Window::set_default_icon_name(BASE_APP_ID);
     }
 
     pub fn init_css_provider(&self) {
@@ -55,13 +71,16 @@ impl IvyApplication {
         keybindings.append(&mut parsed_keybindings)
     }
 
-    pub fn new_normal_window(&self) {
-        let window = IvyNormalWindow::new(self);
+    /// `icon` is the per-invocation badge texture (None = base icon), so
+    /// windows opened by different launches keep their own icon even though
+    /// they share one application instance
+    pub fn new_normal_window(&self, icon: Option<&gtk4::gdk::Texture>) {
+        let window = IvyNormalWindow::new(self, icon);
         window.present();
     }
 
-    pub fn new_tmux_window(&self, attach_argv: &[String]) {
-        let window = IvyTmuxWindow::new(self, attach_argv);
+    pub fn new_tmux_window(&self, attach_argv: &[String], icon: Option<&gtk4::gdk::Texture>) {
+        let window = IvyTmuxWindow::new(self, attach_argv, icon);
         window.present();
     }
 

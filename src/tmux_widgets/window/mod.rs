@@ -4,7 +4,7 @@ mod tmux;
 use std::rc::Rc;
 
 use glib::{subclass::types::ObjectSubclassIsExt, Object, Propagation};
-use gtk4::{Align, Box, Button, Orientation, PackType, WindowControls, WindowHandle};
+use gtk4::{gdk, Align, Box, Button, Orientation, PackType, WindowControls, WindowHandle};
 use libadwaita::{gio, glib, prelude::*, ApplicationWindow, TabBar, TabView};
 use log::debug;
 use tmux::TmuxInitState;
@@ -12,7 +12,7 @@ use tmux::TmuxInitState;
 use crate::{
     application::IvyApplication,
     config::{TerminalConfig, APPLICATION_TITLE, INITIAL_HEIGHT, INITIAL_WIDTH},
-    helpers::{adjusted_font_scale, borrow_clone},
+    helpers::{adjusted_font_scale, apply_window_icon, borrow_clone},
     keyboard::KeyboardAction,
     tmux_api::TmuxAPI,
 };
@@ -41,10 +41,13 @@ glib::wrapper! {
 }
 
 impl IvyTmuxWindow {
-    pub fn new(app: &IvyApplication, attach_argv: &[String]) -> Self {
+    pub fn new(app: &IvyApplication, attach_argv: &[String], icon: Option<&gdk::Texture>) -> Self {
         let window: Self = Object::builder().build();
         window.set_application(Some(app));
         window.set_title(Some(APPLICATION_TITLE));
+        // Apply the per-launch badge icon (pixels sent via xdg-toplevel-icon
+        // once the window is realized); None keeps the base application icon
+        apply_window_icon(&window, icon.cloned());
         window.set_default_width(INITIAL_WIDTH);
         window.set_default_height(INITIAL_HEIGHT);
         window.add_css_class("tmux_window");
