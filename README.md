@@ -66,9 +66,10 @@ Safety and limitations:
   the position where the prediction started, not at its end
 
 ### Custom window icon
-To tell windows apart at a glance, ivyTerm can compose a per-launch icon
-from a background color (e.g. one per host) and a short text label (e.g. the
-session):
+To tell windows apart at a glance, ivyTerm can compose a per-launch icon from
+the ivyTerm logo: `--badge-color` recolors the logo's terminal background
+(default black — e.g. one color per host), and `--badge-text` shows a short
+label in the terminal screen in place of the prompt (e.g. the session):
 
 ```sh
 ivyterm --badge-color '#c33' --badge-text ML1 attach ssh ml001 tmux -2 -C new-session -A -s ml1
@@ -76,7 +77,8 @@ ivyterm --badge-color '#c33' --badge-text ML1 attach ssh ml001 tmux -2 -C new-se
 
 `--badge-color` accepts anything `GdkRGBA` parses (`#rgb`, `#rrggbb`, CSS
 names); `--badge-text` is truncated to 3 characters and drawn in a
-contrasting color. Both are optional and must precede any `attach`.
+contrasting color. Both are optional and must precede any `attach`; with only
+a color the original prompt glyphs are kept.
 
 ivyTerm composes the icon as an SVG under
 `~/.local/share/icons/hicolor/scalable/apps/` (named deterministically from

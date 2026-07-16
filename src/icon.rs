@@ -42,10 +42,12 @@ pub fn install_badge(color: Option<&str>, text: Option<&str>) -> Option<String> 
         .unwrap_or_else(default_badge_color);
 
     let text = trim_badge_text(text.unwrap_or(""));
+    // The connection color becomes the terminal background of the logo; the
+    // text is drawn on it in a contrasting color so it stays legible
     let bg_hex = rgba_to_hex(&rgba);
-    let fg_hex = contrasting_text_color(&rgba);
+    let text_hex = contrasting_text_color(&rgba);
     let name = badge_icon_name(&bg_hex, &text);
-    let svg = badge_svg(&bg_hex, fg_hex, &text);
+    let svg = badge_svg(&bg_hex, text_hex, &text);
 
     match write_icon(&name, &svg) {
         Ok(()) => Some(name),
@@ -57,7 +59,9 @@ pub fn install_badge(color: Option<&str>, text: Option<&str>) -> Option<String> 
 }
 
 fn default_badge_color() -> RGBA {
-    RGBA::parse("#3465a4").unwrap()
+    // The logo's original terminal background (near-black), so a text-only
+    // badge keeps the standard look
+    RGBA::parse("#1a1a1a").unwrap()
 }
 
 /// Keeps at most MAX_BADGE_CHARS characters (counted as Unicode scalar
@@ -103,25 +107,73 @@ fn escape_xml(text: &str) -> String {
         .replace('>', "&gt;")
 }
 
-/// SVG for the badge: a rounded square in the badge color with the text
-/// centered on top
-pub fn badge_svg(bg_hex: &str, fg_hex: &str, text: &str) -> String {
-    let font_size = match text.chars().count() {
-        0 | 1 => 64,
-        2 => 52,
-        _ => 40,
+/// The ivyTerm logo, embedded so badges are self-contained
+const LOGO_SVG: &str = include_str!("../data/com.tomiyou.ivyTerm.svg");
+
+/// Drawable content of the logo (children of its root `<svg>`), so it can be
+/// nested inside the generated badge SVG
+fn logo_inner() -> &'static str {
+    let start = match LOGO_SVG.find("<svg") {
+        Some(i) => match LOGO_SVG[i..].find('>') {
+            Some(j) => i + j + 1,
+            None => return "",
+        },
+        None => return "",
     };
+    let end = LOGO_SVG.rfind("</svg>").unwrap_or(LOGO_SVG.len());
+    &LOGO_SVG[start..end]
+}
+
+/// The logo fill representing the terminal background (a near-black
+/// rounded rect); this is what --badge-color recolors
+const TERMINAL_BG_FILL: &str = "fill:#1a1a1a";
+
+/// The logo fill of the prompt glyphs (`>` and cursor `_`); hidden when a
+/// session label takes their place
+const PROMPT_FILL: &str = "fill:#ffffff";
+
+/// Recolors only the terminal-background fill of the logo, leaving the rest
+/// (the prompt, the ivy) in its original colors
+fn recolor_terminal_bg(svg: &str, color_hex: &str) -> String {
+    svg.replace(TERMINAL_BG_FILL, &format!("fill:{}", color_hex))
+}
+
+/// SVG for the badge: the ivyTerm logo with its terminal background recolored
+/// to the connection color. With a session label, the prompt glyphs are
+/// hidden and the label is drawn in the terminal screen in their place.
+pub fn badge_svg(color_hex: &str, text_color_hex: &str, text: &str) -> String {
+    // Logo native viewBox is 4096; 0.03125 * 4096 = 128, so it fills the icon
+    let mut logo = recolor_terminal_bg(logo_inner(), color_hex);
+
+    let text_element = if text.is_empty() {
+        String::new()
+    } else {
+        // The label sits where the prompt was, so hide the prompt glyphs
+        logo = logo.replace(PROMPT_FILL, "fill:none");
+        let font_size = match text.chars().count() {
+            1 => 56,
+            2 => 46,
+            _ => 38,
+        };
+        format!(
+            r#"<text x="60" y="52" font-family="monospace" font-weight="bold" font-size="{size}" fill="{text_color}" text-anchor="middle" dominant-baseline="central">{text}</text>"#,
+            size = font_size,
+            text_color = text_color_hex,
+            text = escape_xml(text),
+        )
+    };
+
+    // The inlined logo carries sodipodi:/inkscape: prefixed nodes; declare
+    // those namespaces on the root so the generated SVG is valid XML
     format!(
         r##"<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect x="8" y="8" width="112" height="112" rx="24" ry="24" fill="{bg}"/>
-  <text x="64" y="64" font-family="monospace" font-weight="bold" font-size="{size}" fill="{fg}" text-anchor="middle" dominant-baseline="central">{text}</text>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="128" height="128" viewBox="0 0 128 128">
+  <g transform="scale(0.03125)">{logo}</g>
+  {text_element}
 </svg>
 "##,
-        bg = bg_hex,
-        fg = fg_hex,
-        size = font_size,
-        text = escape_xml(text),
+        logo = logo,
+        text_element = text_element,
     )
 }
 
@@ -180,10 +232,32 @@ mod tests {
 
     #[test]
     fn svg_escapes_text_and_is_well_formed() {
-        let svg = badge_svg("#c33", "#fff", "a<b");
+        let svg = badge_svg("#cc3333", "#ffffff", "a<b");
         assert!(svg.contains("a&lt;b"));
         assert!(!svg.contains("a<b"));
         assert!(svg.contains("<svg"));
-        assert!(svg.contains("fill=\"#c33\""));
+        assert!(svg.contains("fill=\"#ffffff\""));
+    }
+
+    #[test]
+    fn only_terminal_background_is_recolored() {
+        let svg = badge_svg("#cc3333", "#ffffff", "ML1");
+        // The logo is embedded
+        assert!(svg.contains("<path"));
+        // The terminal background is recolored...
+        assert!(svg.contains("fill:#cc3333"));
+        assert!(!svg.contains("fill:#1a1a1a"));
+        // ...but the ivy (green) and prompt stay original
+        assert!(svg.contains("#5e9445"));
+        assert!(svg.contains("#cbe3ac"));
+    }
+
+    #[test]
+    fn recolor_only_touches_the_terminal_bg_fill() {
+        let input = "a fill:#1a1a1a b fill:#5e9445 c";
+        assert_eq!(
+            recolor_terminal_bg(input, "#cc3333"),
+            "a fill:#cc3333 b fill:#5e9445 c"
+        );
     }
 }
