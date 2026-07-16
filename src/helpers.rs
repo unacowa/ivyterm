@@ -19,7 +19,7 @@ pub fn apply_window_icon(window: &impl IsA<gtk4::Window>, texture: Option<gtk4::
     window.connect_realize(move |window| {
         if let Some(surface) = window.surface() {
             if let Ok(toplevel) = surface.downcast::<gtk4::gdk::Toplevel>() {
-                toplevel.set_icon_list(&[texture.clone()]);
+                toplevel.set_icon_list(std::slice::from_ref(&texture));
             }
         }
     });

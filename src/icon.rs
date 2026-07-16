@@ -58,8 +58,10 @@ pub fn render_badge_texture(color: Option<&str>, text: Option<&str>) -> Option<g
 fn render_svg_to_texture(svg: &str) -> Option<gdk::Texture> {
     let mut fontdb = usvg::fontdb::Database::new();
     fontdb.load_system_fonts();
-    let mut options = usvg::Options::default();
-    options.fontdb = Arc::new(fontdb);
+    let options = usvg::Options {
+        fontdb: Arc::new(fontdb),
+        ..Default::default()
+    };
 
     let tree = match usvg::Tree::from_str(svg, &options) {
         Ok(tree) => tree,
