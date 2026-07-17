@@ -1,0 +1,5 @@
+# papertheme — imported from alacritty/alacritty-theme
+foreground = "#000000"
+background = "#f2eede"
+normal = ["#000000", "#cc3e28", "#216609", "#b58900", "#1e6fcc", "#5c21a5", "#158c86", "#aaaaaa"]
+bright = ["#555555", "#cc3e28", "#216609", "#b58900", "#1e6fcc", "#5c21a5", "#158c86", "#aaaaaa"]

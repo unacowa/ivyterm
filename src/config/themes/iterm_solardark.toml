@@ -1,0 +1,7 @@
+# iterm_solardark — imported from alacritty/alacritty-theme
+foreground = "#a5abb6"
+background = "#002833"
+cursor = "#f86100"
+cursor_foreground = "#003440"
+normal = ["#003440", "#dc312e", "#7cc67f", "#b58900", "#268ad2", "#d33582", "#2aa197", "#eee8d5"]
+bright = ["#00779a", "#f9314b", "#5bee96", "#c08f34", "#109fd2", "#e9679f", "#00bdae", "#fdf6e3"]

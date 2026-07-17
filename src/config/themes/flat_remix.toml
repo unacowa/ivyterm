@@ -1,0 +1,5 @@
+# flat_remix — imported from alacritty/alacritty-theme
+foreground = "#ffffff"
+background = "#272a34"
+normal = ["#1f2229", "#ec0101", "#47d4b9", "#ff8a18", "#277fff", "#d71655", "#05a1f7", "#ffffff"]
+bright = ["#1f2229", "#d41919", "#5ebdab", "#fea44c", "#367bf0", "#bf2e5d", "#49aee6", "#ffffff"]

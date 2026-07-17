@@ -1,0 +1,7 @@
+# oxocarbon — imported from alacritty/alacritty-theme
+foreground = "#ffffff"
+background = "#1b1b1b"
+cursor = "#78a9ff"
+cursor_foreground = "#161616"
+normal = ["#161616", "#ee5396", "#42be65", "#ff7eb6", "#33b1ff", "#be95ff", "#3ddbd9", "#ffffff"]
+bright = ["#525252", "#ee5396", "#42be65", "#ff7eb6", "#33b1ff", "#be95ff", "#3ddbd9", "#ffffff"]

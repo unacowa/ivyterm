@@ -1,0 +1,7 @@
+# afterglow — imported from alacritty/alacritty-theme
+foreground = "#d6d6d6"
+background = "#2c2c2c"
+cursor = "#d9d9d9"
+cursor_foreground = "#2c2c2c"
+normal = ["#1c1c1c", "#bc5653", "#909d63", "#ebc17a", "#7eaac7", "#aa6292", "#86d3ce", "#cacaca"]
+bright = ["#636363", "#bc5653", "#909d63", "#ebc17a", "#7eaac7", "#aa6292", "#86d3ce", "#f7f7f7"]

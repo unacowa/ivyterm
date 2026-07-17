@@ -1,0 +1,5 @@
+# nord_light — imported from alacritty/alacritty-theme
+foreground = "#81a1c1"
+background = "#eceff4"
+normal = ["#d8dee9", "#bf616a", "#a3be8c", "#d08770", "#81a1c1", "#b48ead", "#88c0d0", "#4c566a"]
+bright = ["#d8dee9", "#bf616a", "#a3be8c", "#d08770", "#d8dee9", "#b48ead", "#8fbcbb", "#d8dee9"]

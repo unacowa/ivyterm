@@ -1,0 +1,5 @@
+# github_light — imported from alacritty/alacritty-theme
+foreground = "#24292f"
+background = "#ffffff"
+normal = ["#24292e", "#d73a49", "#28a745", "#dbab09", "#0366d6", "#5a32a3", "#0598bc", "#6a737d"]
+bright = ["#959da5", "#cb2431", "#22863a", "#b08800", "#005cc5", "#5a32a3", "#3192aa", "#d1d5da"]

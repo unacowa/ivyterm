@@ -1,0 +1,5 @@
+# hatsunemiku — imported from alacritty/alacritty-theme
+foreground = "#dcd7d7"
+background = "#242829"
+normal = ["#242829", "#df2683", "#13868c", "#fcfcdf", "#1a86b9", "#bc7fd2", "#7cc7d6", "#4a4b4b"]
+bright = ["#7b8b99", "#df2683", "#13868c", "#fcfcdf", "#1a86b9", "#bc7fd2", "#7cc7d6", "#dcd7d7"]

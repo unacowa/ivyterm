@@ -1,0 +1,5 @@
+# thelovelace — imported from alacritty/alacritty-theme
+foreground = "#fdfdfd"
+background = "#1d1f28"
+normal = ["#282a36", "#f37f97", "#5adecd", "#f2a272", "#8897f4", "#c574dd", "#79e6f3", "#fdfdfd"]
+bright = ["#414458", "#ff4971", "#18e3c8", "#ebcb8b", "#ff8037", "#556fff", "#3fdcee", "#bebec1"]

@@ -1,0 +1,5 @@
+# gruvbox_material_soft_dark — imported from alacritty/alacritty-theme
+foreground = "#d4be98"
+background = "#32302f"
+normal = ["#3c3836", "#ea6962", "#a9b665", "#d8a657", "#7daea3", "#d3869b", "#89b482", "#d4be98"]
+bright = ["#928374", "#ea6962", "#a9b665", "#d8a657", "#7daea3", "#d3869b", "#89b482", "#ddc7a1"]

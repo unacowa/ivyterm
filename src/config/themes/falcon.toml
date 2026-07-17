@@ -1,0 +1,7 @@
+# falcon — imported from alacritty/alacritty-theme
+foreground = "#b4b4b9"
+background = "#020221"
+cursor = "#ffe8c0"
+cursor_foreground = "#020221"
+normal = ["#000004", "#ff3600", "#718e3f", "#ffc552", "#635196", "#ff761a", "#34bfa4", "#b4b4b9"]
+bright = ["#020221", "#ff8e78", "#b1bf75", "#ffd392", "#99a4bc", "#ffb07b", "#8bccbf", "#f8f8ff"]

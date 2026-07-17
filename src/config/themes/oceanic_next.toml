@@ -1,0 +1,5 @@
+# oceanic_next — imported from alacritty/alacritty-theme
+foreground = "#d8dee9"
+background = "#1b2b34"
+normal = ["#29414f", "#ec5f67", "#99c794", "#fac863", "#6699cc", "#c594c5", "#5fb3b3", "#65737e"]
+bright = ["#405860", "#ec5f67", "#99c794", "#fac863", "#6699cc", "#c594c5", "#5fb3b3", "#adb5c0"]

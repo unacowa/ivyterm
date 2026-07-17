@@ -1,0 +1,7 @@
+# papercolor_light — imported from alacritty/alacritty-theme
+foreground = "#444444"
+background = "#eeeeee"
+cursor = "#444444"
+cursor_foreground = "#eeeeee"
+normal = ["#eeeeee", "#af0000", "#008700", "#5f8700", "#0087af", "#878787", "#005f87", "#444444"]
+bright = ["#bcbcbc", "#d70000", "#d70087", "#8700af", "#d75f00", "#d75f00", "#005faf", "#005f87"]

@@ -1,0 +1,7 @@
+# omni — imported from alacritty/alacritty-theme
+foreground = "#e1e1e6"
+background = "#191622"
+cursor = "#f8f8f2"
+cursor_foreground = "#191622"
+normal = ["#000000", "#ff5555", "#50fa7b", "#effa78", "#bd93f9", "#ff79c6", "#8d79ba", "#bfbfbf"]
+bright = ["#4d4d4d", "#ff6e67", "#5af78e", "#eaf08d", "#caa9fa", "#ff92d0", "#aa91e3", "#e6e6e6"]

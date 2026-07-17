@@ -1,0 +1,5 @@
+# kimbie_light — imported from alacritty/alacritty-theme
+foreground = "#6e5346"
+background = "#fbebd4"
+normal = ["#fbebd4", "#d43552", "#b8bb26", "#f0c674", "#7cafc2", "#d3869b", "#8abeb7", "#6e5346"]
+bright = ["#f7e4c6", "#d43552", "#b8bb26", "#f0c674", "#7cafc2", "#d3869b", "#8abeb7", "#4a3631"]

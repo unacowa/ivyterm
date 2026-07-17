@@ -1,0 +1,7 @@
+# night_owl — imported from alacritty/alacritty-theme
+foreground = "#d6deeb"
+background = "#011627"
+selection = "#0d486e"
+selection_foreground = "#ffffff"
+normal = ["#011627", "#ef5350", "#22da6e", "#c5e478", "#82aaff", "#c792ea", "#21c7a8", "#ffffff"]
+bright = ["#575656", "#ef5350", "#22da6e", "#ffeb95", "#82aaff", "#c792ea", "#7fdbca", "#ffffff"]

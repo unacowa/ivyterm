@@ -24,6 +24,15 @@ impl IvyApplication {
         keybindings.clone()
     }
 
+    /// Apply a terminal config to every open window immediately, without
+    /// persisting to disk (the settings window writes on close). Used for live
+    /// previews such as switching the color theme from the settings dropdown.
+    pub fn apply_terminal_config(&self, terminal: &TerminalConfig) {
+        self.imp().config.borrow_mut().terminal = terminal.clone();
+        self.reload_css();
+        self.refresh_terminals();
+    }
+
     pub fn update_config(&self, new: GlobalConfig, keybindings: Vec<Keybinding>) {
         // Write config to file
         new.write_config_to_file();

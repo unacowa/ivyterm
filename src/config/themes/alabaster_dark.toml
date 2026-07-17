@@ -1,0 +1,7 @@
+# alabaster_dark — imported from alacritty/alacritty-theme
+foreground = "#cecece"
+background = "#0e1415"
+cursor = "#cecece"
+cursor_foreground = "#0e1415"
+normal = ["#0e1415", "#e25d56", "#73ca50", "#e9bf57", "#4a88e4", "#915caf", "#23acdd", "#f0f0f0"]
+bright = ["#777777", "#f36868", "#88db3f", "#f0bf7a", "#6f8fdb", "#e987e9", "#4ac9e2", "#ffffff"]

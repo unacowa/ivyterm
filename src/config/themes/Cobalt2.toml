@@ -1,0 +1,7 @@
+# Cobalt2 — imported from alacritty/alacritty-theme
+foreground = "#ffffff"
+background = "#122637"
+cursor = "#f0cb09"
+cursor_foreground = "#122637"
+normal = ["#000000", "#ff0000", "#37dd21", "#fee409", "#1460d2", "#ff005d", "#00bbbb", "#bbbbbb"]
+bright = ["#545454", "#f40d17", "#3bcf1d", "#ecc809", "#5555ff", "#ff55ff", "#6ae3f9", "#ffffff"]

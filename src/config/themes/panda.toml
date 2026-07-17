@@ -1,0 +1,7 @@
+# panda — imported from alacritty/alacritty-theme
+foreground = "#eaeaea"
+background = "#292a2b"
+cursor = "#ffffff"
+cursor_foreground = "#000000"
+normal = ["#3d3e40", "#ff2c6d", "#19f9d8", "#ffb86c", "#45a9f9", "#ff75b5", "#19f9d8", "#f3f3f3"]
+bright = ["#373b41", "#ff3334", "#41fadf", "#ffcc95", "#6fc1ff", "#ff9ecb", "#41fadf", "#f8f8f8"]

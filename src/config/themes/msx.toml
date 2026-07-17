@@ -1,0 +1,5 @@
+# msx — imported from alacritty/alacritty-theme
+foreground = "#ffffff"
+background = "#5955e0"
+normal = ["#5955e0", "#b95e51", "#3aa241", "#ccc35e", "#000000", "#db6559", "#3eb849", "#cccccc"]
+bright = ["#8076f1", "#ff897d", "#74d07d", "#ded087", "#cccccc", "#b766b5", "#65dbef", "#ffffff"]

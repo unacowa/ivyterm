@@ -1,0 +1,9 @@
+# catppuccin_mocha — imported from alacritty/alacritty-theme
+foreground = "#cdd6f4"
+background = "#1e1e2e"
+cursor = "#f5e0dc"
+cursor_foreground = "#1e1e2e"
+selection = "#f5e0dc"
+selection_foreground = "#1e1e2e"
+normal = ["#45475a", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#f5c2e7", "#94e2d5", "#bac2de"]
+bright = ["#585b70", "#f38ba8", "#a6e3a1", "#f9e2af", "#89b4fa", "#f5c2e7", "#94e2d5", "#a6adc8"]

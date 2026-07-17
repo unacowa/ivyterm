@@ -1,0 +1,5 @@
+# ayu_dark — imported from alacritty/alacritty-theme
+foreground = "#b3b1ad"
+background = "#0a0e14"
+normal = ["#01060e", "#ea6c73", "#91b362", "#f9af4f", "#53bdfa", "#fae994", "#90e1c6", "#c7c7c7"]
+bright = ["#686868", "#f07178", "#c2d94c", "#ffb454", "#59c2ff", "#ffee99", "#95e6cb", "#ffffff"]

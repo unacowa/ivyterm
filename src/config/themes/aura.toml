@@ -1,0 +1,7 @@
+# aura — imported from alacritty/alacritty-theme
+foreground = "#edecee"
+background = "#15141b"
+cursor = "#a277ff"
+selection = "#29263c"
+normal = ["#110f18", "#ff6767", "#61ffca", "#ffca85", "#a277ff", "#a277ff", "#61ffca", "#edecee"]
+bright = ["#4d4d4d", "#ff6767", "#61ffca", "#ffca85", "#a277ff", "#a277ff", "#61ffca", "#edecee"]

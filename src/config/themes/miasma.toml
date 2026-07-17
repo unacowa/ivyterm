@@ -1,0 +1,5 @@
+# miasma — imported from alacritty/alacritty-theme
+foreground = "#c2c2b0"
+background = "#222222"
+normal = ["#222222", "#685742", "#5f875f", "#b36d43", "#78824b", "#bb7744", "#c9a554", "#d7c483"]
+bright = ["#666666", "#685742", "#5f875f", "#b36d43", "#78824b", "#bb7744", "#c9a554", "#d7c483"]

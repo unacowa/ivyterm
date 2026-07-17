@@ -1,0 +1,7 @@
+# tomorrow — imported from alacritty/alacritty-theme
+foreground = "#4d4d4c"
+background = "#ffffff"
+cursor = "#d6d6d6"
+cursor_foreground = "#ffffff"
+normal = ["#1d1f21", "#c82829", "#718c00", "#f5871f", "#4271ae", "#8959a8", "#3e999f", "#d6d6d6"]
+bright = ["#8e908c", "#ff3334", "#89aa00", "#eab700", "#5795e6", "#b777e0", "#66bdc3", "#efefef"]

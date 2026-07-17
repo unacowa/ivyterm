@@ -1,0 +1,7 @@
+# moonlight_ii_vscode — imported from alacritty/alacritty-theme
+foreground = "#7f85a3"
+background = "#1e2030"
+cursor = "#808080"
+cursor_foreground = "#7f85a3"
+normal = ["#444a73", "#ff5370", "#4fd6be", "#ffc777", "#3e68d7", "#fc7b7b", "#86e1fc", "#d0d0d0"]
+bright = ["#828bb8", "#ff98a4", "#c3e88d", "#ffc777", "#82aaff", "#ff966c", "#b4f9f8", "#5f8787"]

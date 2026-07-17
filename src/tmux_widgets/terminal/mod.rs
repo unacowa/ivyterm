@@ -14,7 +14,7 @@ use prediction::{
     CommitKind, PREDICTION_TIMEOUT,
 };
 use unicode_width::UnicodeWidthStr;
-use vte4::{Format, Regex, Terminal as Vte, TerminalExt, TerminalExtManual};
+use vte4::{Format, Regex, Terminal as Vte, TerminalExt};
 
 use crate::{
     application::IvyApplication,
@@ -130,12 +130,7 @@ impl TmuxTerminal {
         top_level.register_terminal(&terminal);
 
         // Set terminal colors
-        let color_scheme = ColorScheme::new(&config);
-        vte.set_colors(
-            Some(config.foreground.as_ref()),
-            Some(config.background.as_ref()),
-            &color_scheme.get(),
-        );
+        ColorScheme::new(&config).apply(&vte);
 
         // The Tmux VTE widget has no PTY; input handling (keymap translation,
         // IME filtering, inline preedit display, caret location reporting) is
@@ -291,15 +286,10 @@ impl TmuxTerminal {
 
     pub fn update_config(&self, config: &TerminalConfig) {
         let imp = self.imp();
-        let color_scheme = ColorScheme::new(config);
         let vte = borrow_clone(&imp.vte);
 
         vte.set_font(Some(config.font.as_ref()));
-        vte.set_colors(
-            Some(config.foreground.as_ref()),
-            Some(config.background.as_ref()),
-            &color_scheme.get(),
-        );
+        ColorScheme::new(config).apply(&vte);
         vte.set_scrollback_lines(config.scrollback_lines as i64);
         vte.set_audible_bell(config.terminal_bell);
 

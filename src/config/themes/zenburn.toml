@@ -1,0 +1,5 @@
+# zenburn — imported from alacritty/alacritty-theme
+foreground = "#dcdccc"
+background = "#3a3a3a"
+normal = ["#1e2320", "#d78787", "#60b48a", "#dfaf8f", "#506070", "#dc8cc3", "#8cd0d3", "#dcdccc"]
+bright = ["#709080", "#dca3a3", "#c3bf9f", "#f0dfaf", "#94bff3", "#ec93d3", "#93e0e3", "#ffffff"]

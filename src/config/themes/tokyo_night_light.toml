@@ -1,0 +1,7 @@
+# tokyo_night_light — imported from alacritty/alacritty-theme
+foreground = "#343b58"
+background = "#d6d8df"
+cursor = "#707280"
+selection = "#acb0bf"
+normal = ["#343b58", "#c24242", "#41a6b5", "#8f5e15", "#2959aa", "#7b43ba", "#006c86", "#707280"]
+bright = ["#343b58", "#c24242", "#41a6b5", "#8f5e15", "#2959aa", "#7b43ba", "#006c86", "#707280"]

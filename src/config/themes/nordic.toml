@@ -1,0 +1,7 @@
+# nordic — imported from alacritty/alacritty-theme
+foreground = "#bbbdaf"
+background = "#242933"
+selection = "#f0dfaf"
+selection_foreground = "#000000"
+normal = ["#191c1d", "#bd6062", "#a3d6a9", "#f0dfaf", "#8fb4d8", "#c7a9d9", "#b6d7a8", "#bdc5bd"]
+bright = ["#727c7c", "#d18faf", "#b7ceb0", "#bcbcbc", "#e0cf9f", "#c7a9d9", "#bbda97", "#bdc5bd"]

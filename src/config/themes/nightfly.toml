@@ -1,0 +1,9 @@
+# nightfly — imported from alacritty/alacritty-theme
+foreground = "#bdc1c6"
+background = "#011627"
+cursor = "#9ca1aa"
+cursor_foreground = "#080808"
+selection = "#b2ceee"
+selection_foreground = "#080808"
+normal = ["#1d3b53", "#fc514e", "#a1cd5e", "#e3d18a", "#82aaff", "#c792ea", "#7fdbca", "#a1aab8"]
+bright = ["#7c8f8f", "#ff5874", "#21c7a8", "#ecc48d", "#82aaff", "#ae81ff", "#7fdbca", "#d6deeb"]

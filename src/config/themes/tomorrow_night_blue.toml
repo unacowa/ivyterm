@@ -1,0 +1,7 @@
+# tomorrow_night_blue — imported from alacritty/alacritty-theme
+foreground = "#ffffff"
+background = "#002451"
+cursor = "#ffffff"
+cursor_foreground = "#003f8e"
+normal = ["#002451", "#ff9da4", "#d1f1a9", "#ffc58f", "#bbdaff", "#ebbbff", "#99ffff", "#7285b7"]
+bright = ["#7285b7", "#ff9da4", "#d1f1a9", "#ffc58f", "#bbdaff", "#ebbbff", "#99ffff", "#7285b7"]
