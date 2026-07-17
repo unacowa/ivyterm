@@ -1,0 +1,9 @@
+# seashells — imported from alacritty/alacritty-theme
+foreground = "#e5c49e"
+background = "#061923"
+cursor = "#feaf3c"
+cursor_foreground = "#061822"
+selection = "#265b75"
+selection_foreground = "#ffe9d7"
+normal = ["#1d485f", "#db662d", "#008eab", "#feaf3c", "#255a62", "#77dbf4", "#5fb1c2", "#e5c49e"]
+bright = ["#545d65", "#dd998a", "#739da8", "#fedaae", "#0bc7e3", "#c6e8f1", "#97b9c0", "#ffe9d7"]

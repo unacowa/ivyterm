@@ -1,17 +1,21 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk4::{CheckButton, DropDown, Entry, FontButton, Label};
+use gtk4::{CheckButton, DropDown, Entry, FontButton, Label, PropertyExpression, StringObject};
 use libadwaita::{glib, prelude::*, PreferencesGroup, PreferencesPage};
 
-use crate::config::{GlobalConfig, PredictiveEchoMode};
+use crate::application::IvyApplication;
+use crate::config::{theme_names, GlobalConfig, PredictiveEchoMode};
 
 use super::{create_color_button, create_setting_row};
 
-pub fn create_general_page(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesPage {
+pub fn create_general_page(
+    app: &IvyApplication,
+    config: &Rc<RefCell<GlobalConfig>>,
+) -> PreferencesPage {
     // Page 1: Color and Font dialogs
     let page = PreferencesPage::builder().title("General").build();
 
-    let terminal_prefs = create_terminal_prefs(config);
+    let terminal_prefs = create_terminal_prefs(app, config);
     page.add(&terminal_prefs);
 
     // Color scheme
@@ -51,8 +55,55 @@ fn create_build_info() -> PreferencesGroup {
     build_info
 }
 
-fn create_terminal_prefs(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesGroup {
+fn create_terminal_prefs(
+    app: &IvyApplication,
+    config: &Rc<RefCell<GlobalConfig>>,
+) -> PreferencesGroup {
     let borrowed = config.borrow();
+
+    // Color theme: "Custom" (index 0) uses the individual colors below; any
+    // other entry is a built-in scheme that overrides them.
+    let names = theme_names();
+    let mut theme_labels: Vec<&str> = vec!["Custom"];
+    theme_labels.extend(names.iter().map(String::as_str));
+    let theme = DropDown::from_strings(&theme_labels);
+    // With ~170 themes, make the dropdown type-to-search over the entry text.
+    theme.set_enable_search(true);
+    theme.set_expression(Some(PropertyExpression::new(
+        StringObject::static_type(),
+        None::<gtk4::Expression>,
+        "string",
+    )));
+    let selected_theme = match &borrowed.terminal.theme {
+        Some(name) => names
+            .iter()
+            .position(|n| n == name)
+            .map(|i| (i + 1) as u32)
+            .unwrap_or(0),
+        None => 0,
+    };
+    theme.set_selected(selected_theme);
+    theme.connect_selected_notify(glib::clone!(
+        #[weak]
+        config,
+        #[weak]
+        app,
+        move |dropdown| {
+            let idx = dropdown.selected();
+            // Index 0 is "Custom"; the rest map to theme_names() in order.
+            let terminal = {
+                let mut borrowed = config.borrow_mut();
+                borrowed.terminal.theme = if idx == 0 {
+                    None
+                } else {
+                    theme_names().get((idx - 1) as usize).cloned()
+                };
+                borrowed.terminal.clone()
+            };
+            // Apply immediately to all open terminals (live preview).
+            app.apply_terminal_config(&terminal);
+        }
+    ));
 
     // Font Dialog
     let main_font = FontButton::builder()
@@ -157,6 +208,7 @@ fn create_terminal_prefs(config: &Rc<RefCell<GlobalConfig>>) -> PreferencesGroup
         .title("Terminal font and colors")
         .build();
 
+    create_setting_row(&terminal_font_color, "Color theme", theme);
     create_setting_row(&terminal_font_color, "Terminal font", main_font);
     create_setting_row(&terminal_font_color, "Foreground color", foreground_color);
     create_setting_row(&terminal_font_color, "Background color", background_color);

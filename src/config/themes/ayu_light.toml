@@ -1,0 +1,5 @@
+# ayu_light — imported from alacritty/alacritty-theme
+foreground = "#5c6166"
+background = "#fcfcfc"
+normal = ["#010101", "#e7666a", "#80ab24", "#eba54d", "#4196df", "#9870c3", "#51b891", "#c1c1c1"]
+bright = ["#343434", "#ee9295", "#9fd32f", "#f0bc7b", "#6daee6", "#b294d2", "#75c7a8", "#dbdbdb"]

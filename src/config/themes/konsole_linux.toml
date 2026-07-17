@@ -1,0 +1,7 @@
+# konsole_linux — imported from alacritty/alacritty-theme
+foreground = "#e3e3e3"
+background = "#1f1f1f"
+cursor = "#f8f8f2"
+cursor_foreground = "#191622"
+normal = ["#000000", "#b21818", "#18b218", "#b26818", "#1818b2", "#b218b2", "#18b2b2", "#b2b2b2"]
+bright = ["#686868", "#ff5454", "#54ff54", "#ffff54", "#5454ff", "#ff54ff", "#54ffff", "#ffffff"]

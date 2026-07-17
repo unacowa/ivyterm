@@ -1,0 +1,5 @@
+# chicago95 — imported from alacritty/alacritty-theme
+foreground = "#c0c7c8"
+background = "#000000"
+normal = ["#000000", "#a80000", "#00a800", "#a85400", "#0000a8", "#a800a8", "#00a8a8", "#a8a8a8"]
+bright = ["#545454", "#fc5454", "#54fc54", "#fcfc54", "#5454fc", "#fc54fc", "#54fcfc", "#ffffff"]

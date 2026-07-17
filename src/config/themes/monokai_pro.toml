@@ -1,0 +1,5 @@
+# monokai_pro — imported from alacritty/alacritty-theme
+foreground = "#fff1f3"
+background = "#2d2a2e"
+normal = ["#2c2525", "#fd6883", "#adda78", "#f9cc6c", "#f38d70", "#a8a9eb", "#85dacc", "#fff1f3"]
+bright = ["#72696a", "#fd6883", "#adda78", "#f9cc6c", "#f38d70", "#a8a9eb", "#85dacc", "#fff1f3"]

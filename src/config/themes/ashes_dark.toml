@@ -1,0 +1,7 @@
+# ashes_dark — imported from alacritty/alacritty-theme
+foreground = "#c7ccd1"
+background = "#1c2023"
+cursor = "#c7ccd1"
+cursor_foreground = "#1c2023"
+normal = ["#1c2023", "#c7ae95", "#95c7ae", "#aec795", "#ae95c7", "#c795ae", "#95aec7", "#c7ccd1"]
+bright = ["#747c84", "#c7ae95", "#95c7ae", "#aec795", "#ae95c7", "#c795ae", "#95aec7", "#f3f4f5"]

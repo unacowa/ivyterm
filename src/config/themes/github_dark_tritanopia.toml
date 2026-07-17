@@ -1,0 +1,7 @@
+# github_dark_tritanopia — imported from alacritty/alacritty-theme
+foreground = "#c9d1d9"
+background = "#0d1117"
+cursor = "#c9d1d9"
+cursor_foreground = "#0d1117"
+normal = ["#484f58", "#ff7b72", "#58a6ff", "#d29922", "#58a6ff", "#bc8cff", "#39c5cf", "#b1bac4"]
+bright = ["#6e7681", "#ffa198", "#79c0ff", "#e3b341", "#79c0ff", "#bc8cff", "#39c5cf", "#b1bac4"]

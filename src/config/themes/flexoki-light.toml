@@ -1,0 +1,5 @@
+# flexoki-light — imported from alacritty/alacritty-theme
+foreground = "#100f0f"
+background = "#fffcf0"
+normal = ["#100f0f", "#d14d41", "#879a39", "#d0a215", "#4385be", "#ce5d97", "#3aa99f", "#fffcf0"]
+bright = ["#100f0f", "#d14d41", "#879a39", "#d0a215", "#4385be", "#ce5d97", "#3aa99f", "#fffcf0"]

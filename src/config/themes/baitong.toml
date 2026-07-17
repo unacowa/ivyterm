@@ -1,0 +1,9 @@
+# baitong — imported from alacritty/alacritty-theme
+foreground = "#33ff33"
+background = "#112a2a"
+cursor = "#ff00ff"
+cursor_foreground = "#112a2a"
+selection = "#1ae642"
+selection_foreground = "#112a2a"
+normal = ["#000000", "#f77272", "#33ff33", "#1ae642", "#68fdfe", "#ff66ff", "#87cefa", "#dbdbd9"]
+bright = ["#ffffff", "#f77272", "#33ff33", "#1ae642", "#68fdfe", "#ff66ff", "#68fdfe", "#dbdbd9"]

@@ -1,0 +1,5 @@
+# ganbaru_matcha — imported from alacritty/alacritty-theme
+foreground = "#e1e5ec"
+background = "#17181d"
+normal = ["#17181d", "#e86081", "#75c186", "#ffaf5d", "#95bff0", "#b5a7ef", "#54cec4", "#7b8e95"]
+bright = ["#475254", "#ff6d7e", "#b1c771", "#e5de8c", "#a7d9f1", "#f3ace2", "#a9d9bd", "#859298"]

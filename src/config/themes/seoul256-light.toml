@@ -1,0 +1,9 @@
+# seoul256-light — imported from alacritty/alacritty-theme
+foreground = "#4e4e4e"
+background = "#dadada"
+cursor = "#4e4e4e"
+cursor_foreground = "#dadada"
+selection = "#bcdede"
+selection_foreground = "#4e4e4e"
+normal = ["#4e4e4e", "#af005f", "#5f875f", "#af5f00", "#007173", "#870087", "#008787", "#e4e4e4"]
+bright = ["#626262", "#d70087", "#87af87", "#dfbc72", "#5fafd7", "#af5fff", "#00afaf", "#ffffff"]

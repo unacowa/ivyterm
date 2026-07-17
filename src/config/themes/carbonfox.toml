@@ -1,0 +1,9 @@
+# carbonfox — imported from alacritty/alacritty-theme
+foreground = "#f2f4f8"
+background = "#161616"
+cursor = "#b6b8bb"
+cursor_foreground = "#f2f4f8"
+selection = "#2a2a2a"
+selection_foreground = "#f2f4f8"
+normal = ["#282828", "#ee5396", "#25be6a", "#08bdba", "#78a9ff", "#be95ff", "#33b1ff", "#dfdfe0"]
+bright = ["#484848", "#f16da6", "#46c880", "#2dc7c4", "#8cb6ff", "#c8a5ff", "#52bdff", "#e4e4e5"]

@@ -1,0 +1,7 @@
+# tomorrow_night_eighties — imported from alacritty/alacritty-theme
+foreground = "#cccccc"
+background = "#2d2d2d"
+cursor = "#cccccc"
+cursor_foreground = "#2d2d2d"
+normal = ["#2d2d2d", "#f2777a", "#99cc99", "#f99157", "#6699cc", "#cc99cc", "#66cccc", "#515151"]
+bright = ["#666666", "#ff3334", "#9ec400", "#ffcc66", "#6699cc", "#b77ee0", "#54ced6", "#393939"]

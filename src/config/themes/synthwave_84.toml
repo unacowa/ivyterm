@@ -1,0 +1,5 @@
+# synthwave_84 — imported from alacritty/alacritty-theme
+foreground = "#ffffff"
+background = "#262335"
+normal = ["#262335", "#fe4450", "#72f1b8", "#f3e70f", "#03edf9", "#ff7edb", "#03edf9", "#ffffff"]
+bright = ["#614d85", "#fe4450", "#72f1b8", "#fede5d", "#03edf9", "#ff7edb", "#03edf9", "#ffffff"]

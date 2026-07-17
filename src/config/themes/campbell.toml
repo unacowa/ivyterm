@@ -1,0 +1,5 @@
+# campbell — imported from alacritty/alacritty-theme
+foreground = "#cccccc"
+background = "#0c0c0c"
+normal = ["#0c0c0c", "#c50f1f", "#13a10e", "#c19c00", "#0037da", "#881798", "#3a96dd", "#cccccc"]
+bright = ["#767676", "#e74856", "#16c60c", "#f9f1a5", "#3b78ff", "#b4009e", "#61d6d6", "#f2f2f2"]

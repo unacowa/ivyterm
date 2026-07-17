@@ -1,0 +1,5 @@
+# github_dark_dimmed — imported from alacritty/alacritty-theme
+foreground = "#768390"
+background = "#22272e"
+normal = ["#545d68", "#f47067", "#57ab5a", "#c69026", "#539bf5", "#b083f0", "#39c5cf", "#909dab"]
+bright = ["#636e7b", "#ff938a", "#6bc46d", "#daaa3f", "#6cb6ff", "#dcbdfb", "#56d4dd", "#cdd9e5"]

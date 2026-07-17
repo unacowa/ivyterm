@@ -1,0 +1,9 @@
+# catppuccin_frappe — imported from alacritty/alacritty-theme
+foreground = "#c6d0f5"
+background = "#303446"
+cursor = "#f2d5cf"
+cursor_foreground = "#303446"
+selection = "#f2d5cf"
+selection_foreground = "#303446"
+normal = ["#51576d", "#e78284", "#a6d189", "#e5c890", "#8caaee", "#f4b8e4", "#81c8be", "#b5bfe2"]
+bright = ["#626880", "#e78284", "#a6d189", "#e5c890", "#8caaee", "#f4b8e4", "#81c8be", "#a5adce"]

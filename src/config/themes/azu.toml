@@ -1,0 +1,7 @@
+# azu — imported from alacritty/alacritty-theme
+foreground = "#d9e6f2"
+background = "#09111a"
+cursor = "#d9e6f2"
+cursor_foreground = "#09111a"
+normal = ["#000000", "#ac6d74", "#74ac6d", "#aca46d", "#6d74ac", "#a46dac", "#6daca4", "#e6e6e6"]
+bright = ["#262626", "#d6b8bc", "#bcd6b8", "#d6d3b8", "#b8bcd6", "#d3b8d6", "#b8d6d3", "#ffffff"]

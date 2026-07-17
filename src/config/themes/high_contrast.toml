@@ -1,0 +1,7 @@
+# high_contrast — imported from alacritty/alacritty-theme
+foreground = "#dddddd"
+background = "#444444"
+cursor = "#ffffff"
+cursor_foreground = "#aaaaaa"
+normal = ["#000000", "#ff0000", "#00ff00", "#ffff00", "#0000ff", "#ff00ff", "#00ffff", "#ffffff"]
+bright = ["#000000", "#ff0000", "#00ff00", "#ffff00", "#0000ff", "#ff00ff", "#00ffff", "#ffffff"]

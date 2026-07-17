@@ -1,0 +1,5 @@
+# ganbaru — imported from alacritty/alacritty-theme
+foreground = "#e1e5ec"
+background = "#151b24"
+normal = ["#151b24", "#e8608c", "#a2d37e", "#ffb270", "#73b3ff", "#b8abec", "#60cee0", "#a8adb7"]
+bright = ["#555555", "#ff6d7e", "#b1e397", "#e5de8c", "#a2c8f5", "#ecaee3", "#a8d9e1", "#d1d8e5"]

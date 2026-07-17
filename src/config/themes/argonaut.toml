@@ -1,0 +1,7 @@
+# argonaut — imported from alacritty/alacritty-theme
+foreground = "#ebebeb"
+background = "#292c3e"
+cursor = "#ff261e"
+cursor_foreground = "#ebebeb"
+normal = ["#0d0d0d", "#ff301b", "#a0e521", "#ffc620", "#1ba6fa", "#8763b8", "#21deef", "#ebebeb"]
+bright = ["#6d7070", "#ff4352", "#b8e466", "#ffd750", "#1ba6fa", "#a578ea", "#73fbf1", "#fefef8"]

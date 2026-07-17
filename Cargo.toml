@@ -16,6 +16,7 @@ enumflags2 = { version = "0.7.11", features = ["std"] }
 env_logger = "0.11.7"
 glib = "0.20.9"
 gtk4 = "0.9.6"
+include_dir = "0.7.4"
 lazy_static = "1.5.0"
 libadwaita = "0.7.2"
 log = "0.4.26"

@@ -1,0 +1,5 @@
+# blood_moon — imported from alacritty/alacritty-theme
+foreground = "#c6c6c4"
+background = "#10100e"
+normal = ["#10100e", "#c40233", "#009f6b", "#ffd700", "#0087bd", "#9a4eae", "#20b2aa", "#c6c6c4"]
+bright = ["#696969", "#ff2400", "#03c03c", "#fdff00", "#007fff", "#ff1493", "#00cccc", "#fffafa"]

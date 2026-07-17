@@ -1,0 +1,5 @@
+# gruvbox_material_hard_light — imported from alacritty/alacritty-theme
+foreground = "#654735"
+background = "#f9f5d7"
+normal = ["#654735", "#c14a4a", "#6c782e", "#b47109", "#45707a", "#945e80", "#4c7a5d", "#f2e5bc"]
+bright = ["#654735", "#c14a4a", "#6c782e", "#b47109", "#45707a", "#945e80", "#4c7a5d", "#f2e5bc"]

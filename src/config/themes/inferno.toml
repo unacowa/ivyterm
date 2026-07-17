@@ -1,0 +1,5 @@
+# inferno — imported from alacritty/alacritty-theme
+foreground = "#d9d9d9"
+background = "#270d06"
+normal = ["#330000", "#ff3300", "#ff6600", "#ff9900", "#ffcc00", "#ff6600", "#ff9900", "#d9d9d9"]
+bright = ["#663300", "#ff6633", "#ff9966", "#ffcc99", "#ffcc33", "#ff9966", "#ffcc99", "#d9d9d9"]

@@ -130,7 +130,7 @@ impl IvyApplication {
     #[inline]
     fn parse_css(&self, css_provider: &CssProvider) {
         let config = self.imp().config.borrow();
-        let background_hex = config.terminal.background.to_hex();
+        let background_hex = config.terminal.effective_background().to_hex();
         let tmux_window_hex = config.tmux.window_color.to_hex();
         let split_handle_hex = config.terminal.split_handle_color.to_hex();
 

@@ -1,0 +1,9 @@
+# catppuccin_macchiato — imported from alacritty/alacritty-theme
+foreground = "#cad3f5"
+background = "#24273a"
+cursor = "#f4dbd6"
+cursor_foreground = "#24273a"
+selection = "#f4dbd6"
+selection_foreground = "#24273a"
+normal = ["#494d64", "#ed8796", "#a6da95", "#eed49f", "#8aadf4", "#f5bde6", "#8bd5ca", "#b8c0e0"]
+bright = ["#5b6078", "#ed8796", "#a6da95", "#eed49f", "#8aadf4", "#f5bde6", "#8bd5ca", "#a5adcb"]

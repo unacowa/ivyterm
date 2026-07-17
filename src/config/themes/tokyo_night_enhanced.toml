@@ -1,0 +1,7 @@
+# tokyo_night_enhanced — imported from alacritty/alacritty-theme
+foreground = "#787c99"
+background = "#08080b"
+cursor = "#787c99"
+selection = "#515c7e"
+normal = ["#363b54", "#f7768e", "#41a6b5", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#787c99"]
+bright = ["#363b54", "#f7768e", "#41a6b5", "#e0af68", "#7aa2f7", "#bb9af7", "#7dcfff", "#787c99"]

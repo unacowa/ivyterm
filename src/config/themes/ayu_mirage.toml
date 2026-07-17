@@ -1,0 +1,5 @@
+# ayu_mirage — imported from alacritty/alacritty-theme
+foreground = "#cbccc6"
+background = "#1f2430"
+normal = ["#212733", "#f08778", "#53bf97", "#fdcc60", "#60b8d6", "#ec7171", "#98e6ca", "#fafafa"]
+bright = ["#686868", "#f58c7d", "#58c49c", "#ffd165", "#65bddb", "#f17676", "#9debcf", "#ffffff"]

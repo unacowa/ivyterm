@@ -6,11 +6,13 @@ use std::{
 use gtk4::{gdk::RGBA, pango::FontDescription};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub use terminal::{ColorScheme, PredictiveEchoMode, TerminalConfig};
+pub use themes::theme_names;
 use tmux::TmuxConfig;
 
 use crate::keyboard::Keybindings;
 
 mod terminal;
+mod themes;
 mod tmux;
 
 pub const INITIAL_WIDTH: i32 = 802;

@@ -1,0 +1,5 @@
+# dark_plus — imported from alacritty/alacritty-theme
+foreground = "#cccccc"
+background = "#1f1f1f"
+normal = ["#000000", "#d6181b", "#6a9955", "#e4d201", "#569cd6", "#bc3fbc", "#4ec9b0", "#e5e5e5"]
+bright = ["#666666", "#ce9178", "#b5cea8", "#dcdcaa", "#9cdcfe", "#d670d6", "#9cdcfe", "#e5e5e5"]

@@ -1,0 +1,7 @@
+# deep_space — imported from alacritty/alacritty-theme
+foreground = "#9aa7bd"
+background = "#1b202a"
+cursor = "#51617d"
+cursor_foreground = "#232936"
+normal = ["#1b202a", "#b15e7c", "#709d6c", "#b5a262", "#608cc3", "#8f72bf", "#56adb7", "#9aa7bd"]
+bright = ["#232936", "#b3785d", "#709d6c", "#d5b875", "#608cc3", "#c47ebd", "#51617d", "#9aa7bd"]

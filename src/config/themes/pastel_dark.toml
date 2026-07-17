@@ -1,0 +1,7 @@
+# pastel_dark — imported from alacritty/alacritty-theme
+foreground = "#c7c7c7"
+background = "#000000"
+cursor = "#ffb472"
+cursor_foreground = "#fffeff"
+normal = ["#616161", "#ff8272", "#b4fa72", "#fefdc2", "#a5d5fe", "#ff8ffd", "#d0d1fe", "#f1f1f1"]
+bright = ["#8e8e8e", "#ffc4bd", "#d6fcb9", "#fefdd5", "#c1e3fe", "#ffb1fe", "#e5e6fe", "#fffeff"]

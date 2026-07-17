@@ -1,0 +1,5 @@
+# acme — imported from alacritty/alacritty-theme
+foreground = "#000000"
+background = "#ffffea"
+normal = ["#101010", "#af5f00", "#cccc7c", "#ffff5f", "#aeeeee", "#505050", "#afffd7", "#fcfcce"]
+bright = ["#101010", "#af5f00", "#cccc7c", "#ffff5f", "#aeeeee", "#505050", "#afffd7", "#fcfcce"]

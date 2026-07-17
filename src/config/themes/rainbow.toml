@@ -1,0 +1,5 @@
+# rainbow — imported from alacritty/alacritty-theme
+foreground = "#aada4f"
+background = "#192835"
+normal = ["#5b4375", "#426bb6", "#2286b5", "#5ab782", "#93ca5b", "#c6c842", "#8a5135", "#c54646"]
+bright = ["#5b4375", "#426bb6", "#2286b5", "#5ab782", "#93ca5b", "#c6c842", "#8a5135", "#c54646"]

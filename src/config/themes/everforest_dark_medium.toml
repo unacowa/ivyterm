@@ -1,0 +1,7 @@
+# everforest_dark_medium — imported from alacritty/alacritty-theme
+foreground = "#d3c6aa"
+background = "#2d353b"
+selection = "#543a48"
+selection_foreground = "#d3c6aa"
+normal = ["#475258", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#d3c6aa"]
+bright = ["#475258", "#e67e80", "#a7c080", "#dbbc7f", "#7fbbb3", "#d699b6", "#83c092", "#d3c6aa"]

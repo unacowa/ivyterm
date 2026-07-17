@@ -1,0 +1,7 @@
+# autumn — imported from alacritty/alacritty-theme
+foreground = "#f3f2cc"
+background = "#232323"
+cursor = "#f3f2cc"
+cursor_foreground = "#232323"
+normal = ["#212121", "#f05e48", "#99be70", "#fad566", "#86c1b9", "#cfba8b", "#72a59e", "#c8c8c8"]
+bright = ["#404040", "#f05e48", "#99be70", "#ffff9f", "#86c1b9", "#cfba8b", "#72a59e", "#e8e8e8"]

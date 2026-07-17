@@ -1,0 +1,7 @@
+# hardhacker — imported from alacritty/alacritty-theme
+foreground = "#eee9fc"
+background = "#282433"
+cursor = "#eee9fc"
+cursor_foreground = "#eee9fc"
+normal = ["#282433", "#e965a5", "#b1f2a7", "#ebde76", "#b1baf4", "#e192ef", "#b3f4f3", "#eee9fc"]
+bright = ["#3f3951", "#e965a5", "#b1f2a7", "#ebde76", "#b1baf4", "#e192ef", "#b3f4f3", "#eee9fc"]

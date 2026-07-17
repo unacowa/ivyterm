@@ -23,7 +23,7 @@ pub fn spawn_preferences_window(app: &IvyApplication, config: GlobalConfig) {
     let window = PreferencesWindow::builder().application(app).build();
 
     // General settings page
-    let general_page = create_general_page(&config);
+    let general_page = create_general_page(app, &config);
     window.add(&general_page);
 
     // Tmux settings page

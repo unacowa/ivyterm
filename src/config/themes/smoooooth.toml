@@ -1,0 +1,9 @@
+# smoooooth — imported from alacritty/alacritty-theme
+foreground = "#dbdbdb"
+background = "#14191e"
+cursor = "#fefffe"
+cursor_foreground = "#000000"
+selection = "#b3d7ff"
+selection_foreground = "#000000"
+normal = ["#14191e", "#b43c29", "#00c200", "#c7c400", "#2743c7", "#bf3fbd", "#00c5c7", "#c7c7c7"]
+bright = ["#676767", "#dc7974", "#57e690", "#ece100", "#a6aaf1", "#e07de0", "#5ffdff", "#feffff"]

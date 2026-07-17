@@ -1,0 +1,9 @@
+# meliora — imported from alacritty/alacritty-theme
+foreground = "#d6d0cd"
+background = "#1c1917"
+cursor = "#d6d0cd"
+cursor_foreground = "#1c1917"
+selection = "#2a2522"
+selection_foreground = "#d6d0cd"
+normal = ["#2a2421", "#d49191", "#b6b696", "#c4b392", "#9e96b6", "#b696b1", "#98acc8", "#ddd9d6"]
+bright = ["#2e2622", "#d89393", "#b9b99b", "#c8b692", "#a299b9", "#b997b4", "#9bb0ca", "#e1dbd9"]

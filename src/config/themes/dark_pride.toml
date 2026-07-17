@@ -1,0 +1,7 @@
+# dark_pride — imported from alacritty/alacritty-theme
+foreground = "#ccccce"
+background = "#0d0d1b"
+cursor = "#ff0017"
+cursor_foreground = "#bbbbbb"
+normal = ["#282828", "#ca1444", "#789aba", "#b3879f", "#95569b", "#cb6fa1", "#fb6e93", "#cf98c1"]
+bright = ["#98218e", "#cb515d", "#5a87b1", "#9c61ab", "#9a77b1", "#f2a297", "#f4436f", "#ebdbb2"]

@@ -86,12 +86,7 @@ impl Terminal {
         ));
 
         // Set terminal colors
-        let color_scheme = ColorScheme::new(&config);
-        vte.set_colors(
-            Some(config.foreground.as_ref()),
-            Some(config.background.as_ref()),
-            &color_scheme.get(),
-        );
+        ColorScheme::new(&config).apply(&vte);
 
         vte.connect_has_focus_notify(glib::clone!(
             #[weak]
@@ -217,15 +212,10 @@ impl Terminal {
     }
 
     pub fn update_config(&self, config: &TerminalConfig) {
-        let color_scheme = ColorScheme::new(config);
         let vte = borrow_clone(&self.imp().vte);
 
         vte.set_font(Some(config.font.as_ref()));
-        vte.set_colors(
-            Some(config.foreground.as_ref()),
-            Some(config.background.as_ref()),
-            &color_scheme.get(),
-        );
+        ColorScheme::new(config).apply(&vte);
         vte.set_scrollback_lines(config.scrollback_lines as i64);
         vte.set_audible_bell(config.terminal_bell);
     }

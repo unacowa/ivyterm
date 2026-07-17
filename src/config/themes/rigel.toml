@@ -1,0 +1,7 @@
+# rigel — imported from alacritty/alacritty-theme
+foreground = "#e6e6dc"
+background = "#002635"
+cursor = "#ffcc1b"
+cursor_foreground = "#002635"
+normal = ["#00384d", "#c43061", "#7fc06e", "#f08e48", "#1c8db2", "#c694ff", "#00cccc", "#77929e"]
+bright = ["#517f8d", "#ff5a67", "#9cf087", "#ffcc1b", "#7eb2dd", "#fb94ff", "#00ffff", "#b7cff9"]
